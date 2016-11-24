@@ -24,9 +24,7 @@ endif()
 # Custom modules
 set (CMAKE_MODULE_PATH "${parser_SOURCE_DIR}/cmake")
 
-find_package(GSL REQUIRED)
-
-find_package(Boost 1.60.0 COMPONENTS
+find_package(Boost 1.58.0 COMPONENTS
   log
   thread
   iostreams
@@ -37,19 +35,14 @@ find_package(Boost 1.60.0 COMPONENTS
   filesystem
   REQUIRED)
 
-message(STATUS "Boost root: ${BOOST_ROOT}")
-
 # Thread support
 find_package( OpenMP  REQUIRED )
 find_package( Threads REQUIRED )
-find_package( gflags  REQUIRED )
 
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
-# add_subdirectory(glog)
-# add_subdirectory(googletest)
-# set(gflags_DIR "${PROJECT_SOURCE_DIR}/gflags")
+add_subdirectory(gflags)
 
 enable_testing()
 
