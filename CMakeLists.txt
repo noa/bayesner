@@ -53,13 +53,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 enable_testing()
 
-message("gflags include dir: ${GFLAGS_INCLUDE_DIR}")
-message("gflags header: ${GFLAGS_INSTALL_HEADERS}")
-
 # Set include and link directories
 include_directories(
   ${CMAKE_SOURCE_DIR}
-  ${GSL_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${GFLAGS_INCLUDE_DIR}
   )
