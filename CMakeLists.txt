@@ -24,6 +24,7 @@ endif()
 # Custom modules
 set (CMAKE_MODULE_PATH "${parser_SOURCE_DIR}/cmake")
 
+SET(Boost_USE_STATIC_LIBS ON)
 find_package(Boost 1.58.0 COMPONENTS
   log
   thread
@@ -43,6 +44,8 @@ set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 
 add_subdirectory(gflags)
+add_subdirectory(googletest)
+include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 enable_testing()
 

@@ -26,6 +26,8 @@
 #include <nn/log.hpp>
 #include <nn/utils.hpp>
 
+#include <cereal/types/unordered_map.hpp>
+
 namespace nn {
 
     template<typename T, typename R>

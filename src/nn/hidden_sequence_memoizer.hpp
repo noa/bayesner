@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #ifndef __NN_HIDDEN_SEQUENCE_MEMOIZER_HPP__
 #define __NN_HIDDEN_SEQUENCE_MEMOIZER_HPP__
 

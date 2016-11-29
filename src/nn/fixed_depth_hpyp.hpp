@@ -35,6 +35,10 @@
 #include <nn/node.hpp>
 #include <nn/restaurants.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/types/array.hpp>
+
 namespace nn {
 
 template<typename T,
@@ -76,7 +80,7 @@ struct FixedDepthHPYP {
     std::unique_ptr<Node> root;
 
     // List of all nodes
-    std::vector<Node*> nodes;
+    //std::vector<Node*> nodes;
 
     // Diagnostics
     size_t total_n_customers {0};

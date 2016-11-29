@@ -25,11 +25,15 @@
 #include <numeric>
 #include <unordered_map>
 
+#include <cereal/types/unordered_map.hpp>
+#include <cereal/types/vector.hpp>
+
 namespace nn {
 
     template<typename T>
     struct Uniform {
-        size_t size;
+        size_t size {0};
+        Uniform() {};
         Uniform(size_t _size) : size(_size) {};
         double prob(T t) const {
             return 1.0/(double)size;
@@ -39,6 +43,11 @@ namespace nn {
         }
         void observe(T t) {}
         size_t cardinality() { return size; }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( size );
+        }
     };
 
     template<typename T>
@@ -49,6 +58,7 @@ namespace nn {
     public:
         double prob(T t)     const { return weight.at(t)/Z; }
         double log_prob(T t) const { return log(prob(t));   }
+        double w(T t)        const { return weight.at(t);   }
 
         void add(T t, double w) {
             weight[t] = w;
@@ -58,6 +68,11 @@ namespace nn {
         void observe(T t) {}
         size_t cardinality() const { return weight.size(); }
         double partition()   const { return Z;             }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( weight, Z );
+        }
     };
 
     template<typename T>
@@ -97,6 +112,11 @@ namespace nn {
         size_t cardinality() const {
             return weights.size();
         }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( weights, probs );
+        }
     };
 
     // NOTE: not in log-space
@@ -119,18 +139,27 @@ namespace nn {
             probs.reserve(nitems);
             normalize();
         }
+
         double prob(size_t state) const {
             return probs[state];
         }
+
         double log_prob(size_t state) const {
             return log(probs[state]);
         }
+
         void set_weight(size_t state, double w) {
             weights[state] = w;
             normalize();
         }
+
         size_t cardinality() const {
             return weights.size();
+        }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( weights, probs );
         }
     };
 }
