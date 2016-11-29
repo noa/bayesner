@@ -8,7 +8,7 @@ set (nn_VERSION_MAJOR 1)
 set (nn_VERSION_MINOR 0)
 
 # CXX Standard
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Compile flags

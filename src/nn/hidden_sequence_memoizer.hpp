@@ -25,7 +25,6 @@
 namespace nn {
     enum class HSMProposal { BASELINE };
 
-    //template<typename base_type = Uniform<sym>,
     template<typename base_type = HashIntegralMeasure<sym>,
              typename tran_type = FixedDepthHPYP<sym,
                                                  syms,
@@ -37,22 +36,22 @@ namespace nn {
 
         HSMProposal prop { HSMProposal::BASELINE };
 
-        const uint_str_table& symtab;
-        const uint_str_table& tagtab;
+        uint_str_table symtab;
+        uint_str_table tagtab;
 
-        std::unique_ptr<base_type> H {nullptr};
-        std::unique_ptr<tran_type> T {nullptr};
+        std::unique_ptr<base_type> H;
+        std::unique_ptr<tran_type> T;
         std::unordered_map<sym, std::unique_ptr<emit_type>> E;
 
         bool frozen { false };
 
-        const syms BOS; // beginning of string obs
-        const syms EOS; // end of string obs
+        syms BOS;         // beginning of string obs
+        syms EOS;         // end of string obs
 
-        const sym context_tag;  // model  "other" tag index
+        sym context_tag;  // model "other" tag index
 
-        const sym context_idx;
-        const sym eos_idx;
+        sym context_idx;
+        sym eos_idx;
 
         size_t n_transition_observed {0};
         size_t n_emission_observed   {0};
@@ -81,6 +80,9 @@ namespace nn {
             return ret;
         }
 
+        hidden_sequence_memoizer() {} // default constructor does no
+                                      // initialization
+
         template<typename Corpus>
         hidden_sequence_memoizer(const Corpus& corpus) :
             hidden_sequence_memoizer(corpus,
@@ -92,14 +94,35 @@ namespace nn {
         hidden_sequence_memoizer(const Corpus& corpus,
                                  std::unordered_map<size_t,double> emit_adaptor_alpha,
                                  std::unordered_map<size_t,double> emit_adaptor_discount,
-                                 double tran_alpha) :
-            BOS(corpus.get_bos_obs()),
-            EOS(corpus.get_eos_obs()),
-            symtab(corpus.symtab),
-            tagtab(corpus.tagtab),
-            context_tag(corpus.get_other_key()),
-            context_idx(corpus.get_other_key()*2),
-            eos_idx(corpus.get_other_key()*2+1) {
+                                 double tran_alpha) {
+            init(corpus, emit_adaptor_alpha, emit_adaptor_discount, tran_alpha);
+        }
+
+        hidden_sequence_memoizer(hidden_sequence_memoizer const&)            = delete;
+        hidden_sequence_memoizer& operator=(hidden_sequence_memoizer const&) = delete;
+
+        struct particle {
+            std::vector<size_t> tags;
+            std::vector<syms> context;
+
+            void add(size_t tag) {
+                tags.push_back(tag);
+            }
+        };
+
+        template<typename Corpus>
+        void init(const Corpus& corpus,
+                  std::unordered_map<size_t,double> emit_adaptor_alpha,
+                  std::unordered_map<size_t,double> emit_adaptor_discount,
+                  double tran_alpha) {
+            // Sentinel values
+            BOS         = corpus.get_bos_obs();
+            EOS         = corpus.get_eos_obs();
+            symtab      = corpus.symtab;
+            tagtab      = corpus.tagtab;
+            context_tag = corpus.get_other_key();
+            context_idx = corpus.get_other_key()*2;
+            eos_idx     = corpus.get_other_key()*2+1;
 
             typename emit_type::param emit_param;
             emit_param.nsyms = symtab.size();
@@ -138,18 +161,6 @@ namespace nn {
             auto tran_model = std::make_unique<tran_type>( H.get() );
             add_transition_model( std::move(tran_model) );
         }
-
-        hidden_sequence_memoizer(hidden_sequence_memoizer const&)            = delete;
-        hidden_sequence_memoizer& operator=(hidden_sequence_memoizer const&) = delete;
-
-        struct particle {
-            std::vector<size_t> tags;
-            std::vector<syms> context;
-
-            void add(size_t tag) {
-                tags.push_back(tag);
-            }
-        };
 
         auto get_context_idx() -> decltype(context_idx) const {
             return context_idx;

@@ -28,10 +28,10 @@ namespace logging = boost::log;
 // #define INFO info
 // #define FATAL fatal
 
-#define LOG(logger) std::cout
+#define LOG(logger)  std::cout
 #define DLOG(logger) std::cout
-#define VLOG(level) std::cout
-#define CHECK(cond) std::cout
+#define VLOG(level)  std::cout
+#define CHECK(cond)  std::cout
 
 // #define LOG(logger) \
 //   BOOST_LOG_TRIVIAL(logger) << "(" << __FILE__ << ", " << __LINE__ << ") "

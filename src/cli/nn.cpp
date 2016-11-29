@@ -106,80 +106,86 @@ bool check_output(nn::instances test, std::string path) {
 }
 
 template<typename Model, typename Corpus>
+std::unique_ptr<Model> train_model(const Corpus& corpus,
+                                   const instances& train,
+                                   const instances& gaz,
+                                   const instances& unlabeled) {
+    LOG(INFO) << "Observing training data: " << FLAGS_train;
+    tic();
+    auto m = std::make_unique<Model>(corpus);
+    if (gaz.size() > 0) {
+        LOG(INFO) << "Observing gazetteer...";
+        histogram<sym> gaz_type_counts;
+        for(const auto& g : gaz) {
+            m->observe_gazetteer(g.tags, g.lens, g.words);
+            for(auto i = 0; i < g.tags.size(); ++i) {
+                auto tag  = g.tags.at(i);
+                gaz_type_counts.observe(tag);
+            }
+        }
+        LOG(INFO) << "Gazetteer type stats:";
+        LOG(INFO) << gaz_type_counts.str();
+    }
+    histogram<size_t> tag_hist;
+    size_t ntag = 0;
+    double alen = 0;
+    for (const auto& ex : train) {
+        m->observe(ex.tags, ex.lens, ex.words);
+        for(auto i=0; i<ex.tags.size(); ++i) {
+            auto tag = ex.tags.at(i);
+            auto len = ex.lens.at(i);
+            alen += static_cast<double>(len);
+            ntag += 1;
+            tag_hist.observe(tag);
+        }
+    }
+    m->log_stats();
+    LOG(INFO) << "TRAIN tag histogram:";
+    LOG(INFO) << tag_hist.count_str();
+    alen /= static_cast<double>(ntag);
+    LOG(INFO) << "TRAIN mean tag len: " << alen;
+    LOG(INFO) << "...done in: " << prettyprint(toc());
+    return m;
+}
+
+template<typename Model, typename Corpus>
 void run_inference(instances train,
                    instances gaz,
                    instances unlabeled,
                    instances test,
                    std::string out_path,
-                   Corpus corpus) {
+                   const Corpus& corpus) {
     LOG(INFO) << "mode: " << FLAGS_mode;
-    Model model(corpus);
-
     LOG(INFO) << "Initializing filter...";
-
     typedef typename Model::particle Particle;
     typedef generic_filter<Model, Particle> Filter;
     typename Filter::settings filter_config;
     filter_config.num_particles = FLAGS_nparticles;
-    Filter filter(filter_config, model);
-
     if (FLAGS_mode == "smc") {
         LOG(INFO) << "Inference: SMC";
-        LOG(INFO) << "Observing training data: " << FLAGS_train;
-        tic();
-
-        if (gaz.size() > 0) {
-            LOG(INFO) << "Observing gazetteer...";
-            histogram<sym> gaz_type_counts;
-            for(const auto& g : gaz) {
-                //LOG(INFO) << "gaz size = " << g.tags.size();
-                model.observe_gazetteer(g.tags, g.lens, g.words);
-                for(auto i = 0; i < g.tags.size(); ++i) {
-                    auto tag  = g.tags.at(i);
-                    gaz_type_counts.observe(tag);
-                }
-            }
-            LOG(INFO) << "Gazetteer type stats:";
-            LOG(INFO) << gaz_type_counts.str();
-        }
-
-        histogram<size_t> tag_hist;
+        std::unique_ptr<Model> model = train_model<Model, Corpus>(corpus,
+                                                                  train,
+                                                                  gaz,
+                                                                  unlabeled);
+        Filter filter(filter_config, *model);
+        CHECK(model->consistent()) << "inconsistent model state";
+        LOG(INFO) << "Writing predictions on test data: " << FLAGS_test;
+        std::ofstream of(out_path);
+        size_t idx  = 0;
         size_t ntag = 0;
         double alen = 0;
-        for (const auto& ex : train) {
-            model.observe(ex.tags, ex.lens, ex.words);
-            for(auto i=0; i<ex.tags.size(); ++i) {
-                auto tag = ex.tags.at(i);
-                auto len = ex.lens.at(i);
-                alen += static_cast<double>(len);
-                ntag += 1;
-                tag_hist.observe(tag);
-            }
-        }
-        model.log_stats();
-        LOG(INFO) << "TRAIN tag histogram:";
-        LOG(INFO) << tag_hist.count_str();
-        alen /= static_cast<double>(ntag);
-        LOG(INFO) << "TRAIN mean tag len: " << alen;
-        alen = 0;
-        ntag = 0;
-        LOG(INFO) << "...done in: " << prettyprint(toc());
-        CHECK(model.consistent()) << "inconsistent model state";
-        LOG(INFO) << "Writing predictions on test data: " << FLAGS_test;
-        std::ofstream of (out_path);
-        size_t idx  = 0;
         double azf  = 0;
         double aess = 0;
         CHECK(of.is_open()) << "problem opening: " << out_path;
-        tag_hist.clear();
+        histogram<size_t> tag_hist;
         progress_bar prog(test.size(), FLAGS_sec_status_interval);
         tic();
         for (const auto& i : test) {
             auto p  = filter.sample(i.words);
             azf    += filter.get_zero_frac();
             aess   += filter.sys.ess;
-            auto tags = model.get_tags(p);
-            auto lens = model.get_lens(p);
+            auto tags = model->get_tags(p);
+            auto lens = model->get_lens(p);
             for(auto len : lens) {
                 alen += static_cast<double>(len);
                 ntag += 1;
@@ -213,18 +219,18 @@ void run_inference(instances train,
         LOG(INFO) << "Predictions written to: " << out_path;
     } else if (FLAGS_mode == "pgibbs") {
         LOG(INFO) << "Inference: particle Gibbs";
+        Model model(corpus);
         typedef particle_gibbs<Particle, Filter, Model, instances> PG;
         typename PG::settings pg_config;
         auto gold_particles = model.make_particles(test);
         pg_config.num_iter = FLAGS_nmcmc_iter;
+        Filter filter(filter_config, model);
         auto sampler = std::make_unique<PG>(pg_config,
                                             train,
                                             unlabeled,
                                             test,
                                             &model,
                                             &filter);
-        //auto path = boost::filesystem::path("tmp");
-        //path.stem().string()
         std::string path {"tmp"};
         typename Model::writer w(path,
                                  test,
@@ -241,7 +247,6 @@ void run_inference(instances train,
     } else {
         CHECK(false) << "unrecognized mode: " << FLAGS_mode;
     }
-
     check_output(test, out_path);
 }
 
