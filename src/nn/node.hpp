@@ -113,19 +113,22 @@ namespace nn {
     };
 
     template<typename T, typename R>
-    struct hash_node {
+    class hash_node {
         R r;
         std::unordered_map<T, std::unique_ptr<hash_node>> kids;
 
-        void* crp  {nullptr};   // CRP sufficient statistics
-        void* data {nullptr};   // additional data required by the CRP
+        //void* crp  {nullptr};   // CRP sufficient statistics
+        //void* data {nullptr};   // additional data required by the CRP
 
-        hash_node() {
-            this->crp = r.getFactory().make();
-        }
-        hash_node(hash_node const&) = delete;
+        std::unique_ptr<typename R::Payload> crp;
+
+    public:
+        hash_node() : crp(std::make_unique<typename R::Payload>()) {}
+
+        hash_node(hash_node const&)            = delete;
         hash_node& operator=(hash_node const&) = delete;
-        ~hash_node() { r.getFactory().recycle(crp); }
+
+        void* get_payload() { return crp.get(); }
 
         hash_node* get_or_null(T t) const {
             if(kids.count(t) > 0) {

@@ -139,7 +139,7 @@ struct FixedDepthHPYP {
     Node* getRoot() const { return root.get(); }
 
     double pred(Node* n, T type, double p0, double d, double alpha) const {
-        return restaurant.computeProbability(n->crp, type, p0, d, alpha);
+        return restaurant.computeProbability(n->get_payload(), type, p0, d, alpha);
     }
 
     size_t totalCustomers() const { return total_n_customers; }
@@ -147,12 +147,12 @@ struct FixedDepthHPYP {
 
     size_t rootCustomers() const {
         auto root = getRoot();
-        return restaurant.getC(root->crp);
+        return restaurant.getC(root->get_payload());
     }
 
     size_t rootTables() const {
         auto root = getRoot();
-        return restaurant.getT(root->crp);
+        return restaurant.getT(root->get_payload());
     }
 
     void fill_node_array(typename Context::const_iterator start,
@@ -189,16 +189,16 @@ struct FixedDepthHPYP {
         LOG(INFO) << "Base prob = " << prob_storage[0];
         for(size_t d = 1; d < node_storage_size; ++d) {
             auto node = node_storage[d];
-            auto consistent = restaurant.checkConsistency(node->crp);
+            auto consistent = restaurant.checkConsistency(node->get_payload());
             CHECK(consistent) << "bad restaurant";
             auto prob = prob_storage[d];
-            auto c = restaurant.getC(node->crp);
-            auto t = restaurant.getT(node->crp);
+            auto c = restaurant.getC(node->get_payload());
+            auto t = restaurant.getT(node->get_payload());
             LOG(INFO) << "c=" << c << " t=" << t << " pr=" << prob;
-            auto types = restaurant.getTypeVector(node->crp);
+            auto types = restaurant.getTypeVector(node->get_payload());
             for(auto t : types) {
-                auto cw = restaurant.getC(node->crp, t);
-                auto tw = restaurant.getT(node->crp, t);
+                auto cw = restaurant.getC(node->get_payload(), t);
+                auto tw = restaurant.getT(node->get_payload(), t);
                 LOG(INFO) << "\t" << t << " cw=" << cw << " tw=" << tw;
             }
         }
@@ -225,12 +225,12 @@ struct FixedDepthHPYP {
         bool new_table;
         do {
             new_table = restaurant.addCustomer(
-                node_storage.at(depth)->crp,
-                obs,
-                prob_storage.at(depth-1),
-                discounts.at(depth),
-                alphas.at(depth)
-                );
+                                               node_storage.at(depth)->get_payload(),
+                                               obs,
+                                               prob_storage.at(depth-1),
+                                               discounts.at(depth),
+                                               alphas.at(depth)
+                                               );
             if (new_table) total_n_tables ++;
             depth --;
         } while(depth > 0 && new_table);
@@ -255,7 +255,7 @@ struct FixedDepthHPYP {
             auto node = node_storage[depth];
             auto d = discounts.at(depth);
             auto a = alphas.at(depth);
-            removed_table = restaurant.removeCustomer(node->crp, obs, d);
+            removed_table = restaurant.removeCustomer(node->get_payload(), obs, d);
             depth --;
             if (removed_table) total_n_tables --;
         } while(depth > 0 && removed_table);
@@ -287,7 +287,7 @@ struct FixedDepthHPYP {
                                           discounts.at(depth),
                                           alphas.at(depth));
             } else {
-                p = restaurant.computeProbability(node->crp, obs, p,
+                p = restaurant.computeProbability(node->get_payload(), obs, p,
                                                   discounts.at(depth),
                                                   alphas.at(depth));
             }

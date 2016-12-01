@@ -26,29 +26,6 @@
 
 namespace nn {
 
-  /**
-   * IPayloadFactory is an interface used by NodeManagers to obtain storage
-   * space for payloads. The void pointers returned by the make function
-   * should be stored by the NodeManager together with the corresponding node,
-   * and returned to the user when getPayload is called. The user can then pass
-   * this pointer to the construtor of the actual Payload.
-   *
-   * Note that the pointer returned by make() is an aliasing pointer. The
-   * class implementing this interface is responsible for free-ing the memory
-   * when it is destroyed. It can also free (or reuse) the memory when a call
-   * to recycle() is made.
-   */
-  class IPayloadFactory {
-  public:
-      virtual void* make() const = 0;
-      virtual void recycle(void*) const = 0;
-      //virtual void save(void*, OutArchive&) const = 0;
-      //virtual void* load(InArchive&) const = 0;
-
-      // noa: exposing copy method
-      //  virtual void* copy(void* payloadPtr) const = 0;
-  };
-
     template <typename T>
     class restaurant_interface {
     public:
@@ -85,7 +62,6 @@ namespace nn {
                                           double discount,
                                           double concentration) const = 0;
         virtual TypeVector getTypeVector(void* payloadPtr)      const = 0;
-        virtual const IPayloadFactory& getFactory()             const = 0;
         virtual bool checkConsistency(void* payloadPtr)         const = 0;
     };
 

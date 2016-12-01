@@ -20,6 +20,7 @@
 #define __NN_SEQ_PYP_HPP__
 
 #include <vector>
+#include <memory>
 
 #include <nn/log.hpp>
 #include <nn/restaurants.hpp>
@@ -31,62 +32,55 @@ template <typename S,
           typename Restaurant = SimpleFullRestaurant<T>
           >
 class seq_pyp : public restaurant_interface<T> {
-
     Restaurant restaurant;
-
-    void* crp  {nullptr};   // CRP sufficient statistics
-    void* data {nullptr};   // additional data required by the CRP
+    std::unique_ptr<typename Restaurant::Payload> crp;
 
 public:
-    seq_pyp(S _BOS, S _EOS, S _SPACE) {
-        crp = restaurant.getFactory().make();
-    }
-    ~seq_pyp() {
-        restaurant.getFactory().recycle(crp);
+    seq_pyp(S _BOS, S _EOS, S _SPACE)
+        : crp(std::make_unique<typename Restaurant::Payload>()) {
     }
 
-    // Forbid copy constructor and assignment
-    seq_pyp(seq_pyp const&) = delete;
+    seq_pyp(seq_pyp const&)            = delete;
     seq_pyp& operator=(seq_pyp const&) = delete;
 
     size_t get_c(const T& obs) const override {
-        return restaurant.getC( crp, obs );
+        return restaurant.getC( crp.get(), obs );
     }
 
     size_t get_c() const override {
-        return restaurant.getC( crp );
+        return restaurant.getC( crp.get() );
     }
 
     size_t get_t(const T& obs) const override {
-        return restaurant.getT( crp, obs );
+        return restaurant.getT( crp.get(), obs );
     }
 
     size_t get_t() const override {
-        return restaurant.getT( crp );
+        return restaurant.getT( crp.get() );
     }
 
     double prob(const T& obs, double p0, double d, double a) const override {
-        return restaurant.computeProbability( crp, obs, p0, d, a );
+        return restaurant.computeProbability( crp.get(), obs, p0, d, a );
     }
 
     double log_prob(const T& obs, double ln_p0, double d, double a) const override {
-        return restaurant.computeLogProbability( crp, obs, ln_p0, d, a );
+        return restaurant.computeLogProbability( crp.get(), obs, ln_p0, d, a );
     }
 
     double log_cache_prob(const T& obs, double d, double a) const override {
-        return restaurant.computeLogCacheProb( crp, obs, d, a );
+        return restaurant.computeLogCacheProb( crp.get(), obs, d, a );
     }
 
     double log_new_prob(double ln_p0, double d, double a) const override {
-        return restaurant.computeLogNewProb( crp, ln_p0, d, a );
+        return restaurant.computeLogNewProb( crp.get(), ln_p0, d, a );
     }
 
     bool add(const T& obs, double ln_p0, double d, double a) override {
-        return restaurant.logAddCustomer( crp, obs, ln_p0, d, a );
+        return restaurant.logAddCustomer( crp.get(), obs, ln_p0, d, a );
     }
 
     bool remove(const T& obs, double d, double a) override {
-        auto removed_table = restaurant.removeCustomer(crp, obs, d);
+        auto removed_table = restaurant.removeCustomer(crp.get(), obs, d);
         return removed_table;
     }
 };

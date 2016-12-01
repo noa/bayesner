@@ -109,7 +109,7 @@ namespace nn {
         typedef typename std::vector<Dish>    TypeVector;
         typedef typename TypeVector::iterator TypeVectorIterator;
 
-        SimpleFullRestaurant() : payloadFactory() {}
+        SimpleFullRestaurant() {}
         ~SimpleFullRestaurant() {}
 
         l_type getC(void* payloadPtr, Dish type) const;
@@ -141,8 +141,6 @@ namespace nn {
 
         TypeVector getTypeVector(void* payloadPtr) const;
 
-        const IPayloadFactory& getFactory() const;
-
         bool addCustomer(void* payloadPtr,
                          Dish type,
                          double parentProbability,
@@ -168,44 +166,22 @@ namespace nn {
 
         bool checkConsistency(void* payloadPtr) const;
 
-        class Payload {
-        public:
+        struct Payload {
             Payload() : tableMap(), sumCustomers(0), sumTables(0) {}
 
-            Payload( const Payload& other ) :
-                tableMap( other.tableMap ),
-                sumCustomers( other.sumCustomers ),
-                sumTables( other.sumTables )
-                {}
+            Payload& operator=(Payload&&) = default;
+            Payload(Payload&&)            = default;
 
             std::map<Dish, std::pair<l_type, std::vector<l_type>>> tableMap;
 
             l_type sumCustomers;
             l_type sumTables;
 
-            //void serialize(InArchive & ar, const unsigned int version);
-            //void serialize(OutArchive & ar, const unsigned int version);
-        };
-
-        class PayloadFactory : public IPayloadFactory {
-        public:
-            void* make() const {
-                return new Payload();
-            };
-
-            void recycle(void* payloadPtr) const {
-                delete (Payload*)payloadPtr;
+            template<class Archive>
+            void serialize(Archive & archive) {
+                archive( tableMap, sumCustomers, sumTables );
             }
-
-            void* copy(void* payloadPtr) const {
-                return new Payload(*(Payload*)payloadPtr);
-            }
-
-            //void save(void* payloadPtr, OutArchive& oa) const;
-            //void* load(InArchive& ia) const;
         };
-
-        const PayloadFactory payloadFactory;
     };
 
     template<typename Dish>
@@ -214,7 +190,7 @@ namespace nn {
         typedef typename std::vector<Dish> TypeVector;
         typedef typename TypeVector::iterator TypeVectorIterator;
 
-        HistogramRestaurant() : payloadFactory() {}
+        HistogramRestaurant() {}
         ~HistogramRestaurant() {}
 
         l_type getC(void* payloadPtr, Dish type) const;
@@ -235,8 +211,6 @@ namespace nn {
                                      double concentration) const;
 
         typename IHPYPBaseRestaurant<Dish>::TypeVector getTypeVector(void* payloadPtr) const;
-
-        const IPayloadFactory& getFactory() const;
 
         bool addCustomer(void* payloadPtr,
                          Dish type,
@@ -265,6 +239,11 @@ namespace nn {
                 l_type cw;
                 l_type tw;
                 Histogram histogram;
+
+                template<class Archive>
+                void serialize(Archive & archive) {
+                    archive( cw, tw, histogram );
+                }
             };
 
             typedef std::map<Dish, Arrangement> TableMap;
@@ -274,20 +253,12 @@ namespace nn {
             TableMap tableMap;
             l_type sumCustomers;
             l_type sumTables;
-        };
 
-        class PayloadFactory : public IPayloadFactory {
-
-            void* make() const {
-                return new Payload();
-            };
-
-            void recycle(void* payloadPtr) const {
-                delete (Payload*)payloadPtr;
+            template<class Archive>
+            void serialize(Archive & archive) {
+                archive( tableMap, sumCustomers, sumTables );
             }
         };
-
-        const PayloadFactory payloadFactory;
     };
 
     template <typename Dish>
@@ -420,11 +391,6 @@ namespace nn {
             typeVector.push_back(it->first);
         }
         return typeVector;
-    }
-
-    template <typename Dish>
-    const IPayloadFactory& SimpleFullRestaurant<Dish>::getFactory() const {
-        return this->payloadFactory;
     }
 
     template <typename Dish>
@@ -752,11 +718,6 @@ namespace nn {
             typeVector.push_back(it->first);
         }
         return typeVector;
-    }
-
-    template <typename Dish>
-    const IPayloadFactory& HistogramRestaurant<Dish>::getFactory() const {
-        return this->payloadFactory;
     }
 
     template <typename Dish>
