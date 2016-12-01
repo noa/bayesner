@@ -226,8 +226,7 @@ struct LogFixedDepthHPYP {
                                             obs,
                                             prob_storage.at(depth-1),
                                             discounts.at(depth),
-                                            alphas.at(depth),
-                                            nullptr
+                                            alphas.at(depth)
                                             );
       if (new_table) total_n_tables ++;
       //LOG(INFO) << "depth " << depth << " new table " << new_table;
@@ -257,21 +256,13 @@ struct LogFixedDepthHPYP {
       auto node = node_storage[depth];
       auto d = discounts.at(depth);
       auto a = alphas.at(depth);
-      node->data = restaurant.createAdditionalData(node->crp, d, a);
       removed_table = restaurant.removeCustomer(node->crp,
                                                 obs,
-                                                d,
-                                                node->data);
-      restaurant.freeAdditionalData(node->data);
-      node->data = nullptr;
-      //LOG(INFO) << "depth " << depth << " removed table " << removed_table;
+                                                d);
       depth --;
       if (removed_table) total_n_tables --;
     } while(depth > 0 && removed_table);
-
-    //if (removed_table) LOG(INFO) << "final remove table!";
     if (removed_table) H->remove(obs);
-
     total_n_customers --;
   }
 

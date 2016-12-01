@@ -82,16 +82,11 @@ public:
     }
 
     bool add(const T& obs, double ln_p0, double d, double a) override {
-        return restaurant.logAddCustomer( crp, obs, ln_p0, d, a, nullptr );
+        return restaurant.logAddCustomer( crp, obs, ln_p0, d, a );
     }
 
     bool remove(const T& obs, double d, double a) override {
-    //std::cout << "seq_pyp remove..." << std::endl;
-    //LOG(INFO) << " got here ... ";
-        data = restaurant.createAdditionalData(crp, d, a);
-        auto removed_table = restaurant.removeCustomer(crp, obs, d, data);
-        restaurant.freeAdditionalData(data);
-        data = nullptr;
+        auto removed_table = restaurant.removeCustomer(crp, obs, d);
         return removed_table;
     }
 };

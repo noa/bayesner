@@ -8,7 +8,6 @@ TEST(FixedDepthHPYP, CerealWorks) {
     HashIntegralMeasure<size_t> H;
     for(size_t i=0; i<5; ++i) H.add(i, 1.0);
     FixedDepthHPYP<size_t,size_t,HashIntegralMeasure<size_t>> model(&H);
-
 }
 
 int main(int argc, char **argv) {

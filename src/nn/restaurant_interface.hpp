@@ -76,26 +76,33 @@ namespace nn {
         typedef typename TypeVector::iterator TypeVectorIterator;
         virtual ~IHPYPBaseRestaurant() {}
         virtual l_type getC(void* payloadPtr, Dish type) const = 0;
-        virtual l_type getC(void* payloadPtr) const = 0;
+        virtual l_type getC(void* payloadPtr)            const = 0;
         virtual l_type getT(void* payloadPtr, Dish type) const = 0;
-        virtual l_type getT(void* payloadPtr) const = 0;
-        virtual double computeProbability(void*  payloadPtr, Dish type, double parentProbability, double discount, double concentration) const = 0;
-        virtual TypeVector getTypeVector(void* payloadPtr) const = 0;
-        virtual const IPayloadFactory& getFactory() const = 0;
-        virtual bool checkConsistency(void* payloadPtr) const = 0;
+        virtual l_type getT(void* payloadPtr)            const = 0;
+        virtual double computeProbability(void* payloadPtr,
+                                          Dish type,
+                                          double parentProbability,
+                                          double discount,
+                                          double concentration) const = 0;
+        virtual TypeVector getTypeVector(void* payloadPtr)      const = 0;
+        virtual const IPayloadFactory& getFactory()             const = 0;
+        virtual bool checkConsistency(void* payloadPtr)         const = 0;
     };
 
     template <typename Dish>
     class IAddRestaurant : public IHPYPBaseRestaurant<Dish> {
     public:
         virtual ~IAddRestaurant() {}
-        virtual bool addCustomer(void*  payloadPtr,
+        virtual bool addCustomer(void* payloadPtr,
                                  Dish type,
                                  double parentProbability,
                                  double discount,
-                                 double concentration,
-                                 void*  additionalData = nullptr
-            ) const = 0;
+                                 double concentration) const = 0;
+        virtual bool logAddCustomer(void* payloadPtr,
+                                    Dish type,
+                                    double parentLogProbability,
+                                    double discount,
+                                    double concentration) const = 0;
     };
 
     template <typename Dish>
@@ -104,22 +111,7 @@ namespace nn {
         virtual ~IAddRemoveRestaurant() {}
         virtual bool removeCustomer(void* payloadPtr,
                                     Dish type,
-                                    double discount,
-                                    void* additionalData
-            ) const = 0;
-
-        virtual void* createAdditionalData(void* payloadPtr,
-                                           double discount,
-                                           double concentration
-            ) const = 0;
-
-        /**
-         * Free the memory allocated for additionalData.
-         *
-         * This should be called for every piece of additionalData
-         * created using createAdditionalData.
-         */
-        virtual void freeAdditionalData(void* additionalData) const = 0;
+                                    double discount) const = 0;
     };
 };
 

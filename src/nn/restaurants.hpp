@@ -1,6 +1,6 @@
 /*
  * Copyright 2008-2016 Jan Gasthaus
- * Copyright 2015-2016 Nicholas Andrews
+ * Copyright 2016-2016 Nicholas Andrews
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@
 #include <nn/mu.hpp>
 #include <nn/utils.hpp>
 #include <nn/restaurant_interface.hpp>
+
+#include <cereal/types/map.hpp>
 
 namespace nn {
     inline double computeHPYPPredictive(size_t cw,
@@ -111,9 +113,9 @@ namespace nn {
         ~SimpleFullRestaurant() {}
 
         l_type getC(void* payloadPtr, Dish type) const;
-        l_type getC(void* payloadPtr) const;
+        l_type getC(void* payloadPtr)            const;
         l_type getT(void* payloadPtr, Dish type) const;
-        l_type getT(void* payloadPtr) const;
+        l_type getT(void* payloadPtr)            const;
 
         double computeProbability(void* payloadPtr,
                                   Dish type,
@@ -133,7 +135,6 @@ namespace nn {
                                    double concentration) const;
 
         double computeLogNewProb(void* payloadPtr,
-                                 //Dish type,
                                  double parentLogProbability,
                                  double discount,
                                  double concentration) const;
@@ -142,49 +143,29 @@ namespace nn {
 
         const IPayloadFactory& getFactory() const;
 
-        void updateAfterSplit(void* longerPayloadPtr,
-                              void* shorterPayloadPtr,
-                              double discountBeforeSplit,
-                              double discountAfterSplit,
-                              bool parentOnly = false) const;
-
-        bool addCustomer(void*  payloadPtr,
+        bool addCustomer(void* payloadPtr,
                          Dish type,
                          double parentProbability,
                          double discount,
-                         double concentration,
-                         void* additionalData = nullptr
-            ) const;
+                         double concentration) const;
 
         bool addCustomer(bool sharing_table,
                          void*  payloadPtr,
                          Dish type,
                          double parentProbability,
                          double discount,
-                         double concentration,
-                         void* additionalData = nullptr
-            ) const;
+                         double concentration) const;
 
         bool logAddCustomer(void* payloadPtr,
                             Dish type,
                             double logParentProbability,
                             double discount,
-                            double concentration,
-                            void* additionalData = nullptr
-            ) const;
+                            double concentration) const;
 
         bool removeCustomer(void* payloadPtr,
                             Dish type,
-                            double discount,
-                            void* additionalData
-            ) const;
+                            double discount) const;
 
-        void* createAdditionalData(void* payloadPtr,
-                                   double discount,
-                                   double concentration
-            ) const;
-
-        void freeAdditionalData(void* additionalData) const;
         bool checkConsistency(void* payloadPtr) const;
 
         class Payload {
@@ -241,13 +222,13 @@ namespace nn {
         l_type getT(void* payloadPtr, Dish type) const;
         l_type getT(void* payloadPtr)            const;
 
-        double computeProbability(void*  payloadPtr,
+        double computeProbability(void* payloadPtr,
                                   Dish type,
                                   double parentProbability,
                                   double discount,
                                   double concentration) const;
 
-        double computeLogProbability(void*  payloadPtr,
+        double computeLogProbability(void* payloadPtr,
                                      Dish type,
                                      double parentLogProbability,
                                      double discount,
@@ -257,37 +238,21 @@ namespace nn {
 
         const IPayloadFactory& getFactory() const;
 
-        void updateAfterSplit(void* longerPayloadPtr,
-                              void* shorterPayloadPtr,
-                              double discountBeforeSplit,
-                              double discountAfterSplit,
-                              bool parentOnly = false) const;
-
-        bool addCustomer(void*  payloadPtr,
+        bool addCustomer(void* payloadPtr,
                          Dish type,
                          double parentProbability,
                          double discount,
-                         double concentration,
-                         void* additionalData = NULL) const;
+                         double concentration) const;
 
         bool logAddCustomer(void* payloadPtr,
                             Dish type,
                             double logParentProbability,
                             double discount,
-                            double concentration,
-                            void* additionalData = nullptr
-            ) const;
+                            double concentration) const;
 
         bool removeCustomer(void* payloadPtr,
                             Dish type,
-                            double discount,
-                            void* additionalData) const;
-
-        void* createAdditionalData(void* payloadPtr,
-                                   double discount,
-                                   double concentration) const;
-
-        void freeAdditionalData(void* additionalData) const;
+                            double discount) const;
 
         bool checkConsistency(void* payloadPtr) const;
 
@@ -358,7 +323,7 @@ namespace nn {
     }
 
     template <typename Dish>
-    double SimpleFullRestaurant<Dish>::computeProbability(void*  payloadPtr,
+    double SimpleFullRestaurant<Dish>::computeProbability(void* payloadPtr,
                                                           Dish type,
                                                           double parentProbability,
                                                           double discount,
@@ -425,7 +390,6 @@ namespace nn {
 
     template <typename Dish>
     double SimpleFullRestaurant<Dish>::computeLogNewProb(void* payloadPtr,
-                                                         // Dish type,
                                                          double parentLogProbability,
                                                          double discount,
                                                          double concentration) const {
@@ -470,13 +434,10 @@ namespace nn {
         Dish type,
         double parentProbability,
         double discount,
-        double concentration,
-        void*  additionalData
-        ) const {
+        double concentration) const {
 
         CHECK(false) << "untested";
 
-        CHECK(additionalData == nullptr);
         Payload& payload = *((Payload*)payloadPtr);
         auto& arrangement = payload.tableMap[type];
         std::vector<l_type>& tables = arrangement.second;
@@ -520,15 +481,11 @@ namespace nn {
     }
 
     template <typename Dish>
-    bool SimpleFullRestaurant<Dish>::addCustomer(void*  payloadPtr,
+    bool SimpleFullRestaurant<Dish>::addCustomer(void* payloadPtr,
                                                  Dish type,
                                                  double parentProbability,
                                                  double discount,
-                                                 double concentration,
-                                                 void*  additionalData
-        ) const {
-
-        //CHECK(additionalData == nullptr);
+                                                 double concentration) const {
         Payload& payload = *((Payload*)payloadPtr);
         auto& arrangement = payload.tableMap[type];
         std::vector<l_type>& tables = arrangement.second;
@@ -594,11 +551,7 @@ namespace nn {
                                                     Dish type,
                                                     double logParentProbability,
                                                     double discount,
-                                                    double concentration,
-                                                    void* additionalData
-        ) const {
-
-        CHECK(additionalData == nullptr);
+                                                    double concentration) const {
         Payload& payload = *((Payload*)payloadPtr);
         auto& arrangement = payload.tableMap[type];
         std::vector<l_type>& tables = arrangement.second;
@@ -645,11 +598,9 @@ namespace nn {
     }
 
     template <typename Dish>
-    bool SimpleFullRestaurant<Dish>::removeCustomer(void* payloadPtr, Dish type,
-                                                    double discount,
-                                                    void* additionalData) const {
-        CHECK(additionalData == nullptr);
-
+    bool SimpleFullRestaurant<Dish>::removeCustomer(void* payloadPtr,
+                                                    Dish type,
+                                                    double discount) const {
         Payload& payload = *((Payload*)payloadPtr);
         assert(payload.tableMap.count(type) == 1);
         auto& arrangement = payload.tableMap[type];
@@ -678,18 +629,6 @@ namespace nn {
         } else {
             return false;
         }
-    }
-
-    template <typename Dish>
-    void* SimpleFullRestaurant<Dish>::createAdditionalData(void* payloadPtr,
-                                                           double discount,
-                                                           double concentration) const {
-        return nullptr; // we don't need additional data
-    }
-
-    template <typename Dish>
-    void SimpleFullRestaurant<Dish>::freeAdditionalData(void* additionalData) const {
-        // nothing to be done
     }
 
     template <typename Dish>
@@ -821,93 +760,11 @@ namespace nn {
     }
 
     template <typename Dish>
-    void HistogramRestaurant<Dish>::updateAfterSplit(void* longerPayloadPtr,
-                                                     void* shorterPayloadPtr,
-                                                     double discountBeforeSplit,
-                                                     double discountAfterSplit,
-                                                     bool parentOnly) const {
-        Payload& payload = *((Payload*)longerPayloadPtr);
-        Payload& newParent = *((Payload*)shorterPayloadPtr);
-
-        // make sure the parent is empty
-        CHECK(newParent.sumCustomers == 0);
-        CHECK(newParent.sumTables == 0);
-        CHECK(newParent.tableMap.size() == 0);
-
-        for(typename Payload::TableMap::iterator it = payload.tableMap.begin();
-            it != payload.tableMap.end(); ++it) {
-            Dish type = it->first;
-            typename Payload::Arrangement& arrangement = payload.tableMap[type];
-            typename Payload::Arrangement& parentArrangement = newParent.tableMap[type];
-
-            if (arrangement.cw == 1) { // just one customer -- can't split
-                // seat customer at his own table in parent
-                ++newParent.sumCustomers; // c
-                ++newParent.sumTables; // t
-                parentArrangement.cw = 1; // cw
-                parentArrangement.tw = 1; // cw
-                parentArrangement.histogram[1] = 1; // cwk
-            } else {
-                // The correct thing to do is the following:
-                // For each type s in this restaurant
-                //      for each table with cwk customers
-                //          sample a partition cwkj from a PYP(-d1d2,d2)
-                //          make the resulting table the tables in this restaurant
-                //          for each k, create a table in the parent restaurant and
-                //          seat |cskj| customers on that table
-
-                // make copy of old seating arrangement
-                typename Payload::Arrangement oldArrangement = arrangement;
-
-                if (!parentOnly) {
-                    // remove old seating arrangement from this restaurant
-                    payload.sumCustomers -= arrangement.cw;
-                    payload.sumTables -= arrangement.tw;
-                    arrangement.cw = 0;
-                    arrangement.tw = 0;
-                    arrangement.histogram.clear();
-                }
-
-                for (typename Payload::Histogram::iterator it = oldArrangement.histogram.begin();
-                     it != oldArrangement.histogram.end();
-                     ++it) { // for all table sizes
-                    for (l_type k = 0; k < (*it).second; ++k) { // all tables of this size
-                        std::vector<int> frag = sample_crp_c(discountAfterSplit,
-                                                             -discountBeforeSplit,
-                                                             (*it).first);
-                        // add table to parent with cwk = frag.size()
-                        parentArrangement.histogram[frag.size()] += 1;
-                        parentArrangement.cw += frag.size();
-                        newParent.sumCustomers += frag.size();
-                        parentArrangement.tw += 1;
-                        newParent.sumTables += 1;
-
-                        if (!parentOnly) {
-                            // add split tables to this restaurant
-                            for (auto j = 0; j < frag.size(); ++j) {
-                                int cwkj = frag[j];
-                                arrangement.histogram[cwkj] += 1;
-                                arrangement.cw += cwkj;
-                                arrangement.tw += 1;
-                                payload.sumTables += 1;
-                                payload.sumCustomers += cwkj;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    template <typename Dish>
     bool HistogramRestaurant<Dish>::addCustomer(void*  payloadPtr,
                                                 Dish type,
                                                 double parentProbability,
                                                 double discount,
-                                                double concentration,
-                                                void* additionalData) const {
-        CHECK(additionalData == NULL);
-
+                                                double concentration) const {
         Payload& payload = *((Payload*)payloadPtr);
         typename Payload::Arrangement& arrangement = payload.tableMap[type];
 
@@ -969,10 +826,7 @@ namespace nn {
                                                    Dish type,
                                                    double parentLogProbability,
                                                    double discount,
-                                                   double concentration,
-                                                   void* additionalData) const {
-        CHECK(additionalData == NULL);
-
+                                                   double concentration) const {
         Payload& payload = *((Payload*)payloadPtr);
         typename Payload::Arrangement& arrangement = payload.tableMap[type];
 
@@ -1031,10 +885,7 @@ namespace nn {
     template <typename Dish>
     bool HistogramRestaurant<Dish>::removeCustomer(void* payloadPtr,
                                                    Dish type,
-                                                   double discount,
-                                                   void* additionalData) const {
-        CHECK(additionalData == NULL);
-
+                                                   double discount) const {
         Payload& payload = *((Payload*)payloadPtr);
         typename Payload::Arrangement& arrangement = payload.tableMap[type];
 
@@ -1093,18 +944,6 @@ namespace nn {
             arrangement.histogram[assignment[sample]-1] += 1;
             return false;
         }
-    }
-
-    template <typename Dish>
-    void* HistogramRestaurant<Dish>::createAdditionalData(void* payloadPtr,
-                                                          double discount,
-                                                          double concentration) const {
-        return NULL;
-    }
-
-    template <typename Dish>
-    void HistogramRestaurant<Dish>::freeAdditionalData(void* additionalData) const {
-        // nothing to be done
     }
 
     template <typename Dish>
