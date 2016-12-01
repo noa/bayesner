@@ -22,7 +22,6 @@
 #include <type_traits>
 #include <memory>
 #include <iostream>
-#include <unordered_set>
 #include <unordered_map>
 #include <stack>
 #include <functional>
@@ -74,31 +73,26 @@ struct FixedDepthHPYP {
     Restaurant restaurant;
 
     // Base distribution of the HPYP
-    BaseMeasure *H;
+    std::shared_ptr<BaseMeasure> H;
 
     // Unique root of context tree
     std::unique_ptr<Node> root;
 
-    // List of all nodes
-    //std::vector<Node*> nodes;
-
     // Diagnostics
     size_t total_n_customers {0};
     size_t total_n_tables    {0};
-    bool init_bit {false};
+    bool init_bit            {false};
 
-    FixedDepthHPYP(BaseMeasure* _H, double alpha)
+    FixedDepthHPYP() {}
+    FixedDepthHPYP(std::shared_ptr<BaseMeasure> _H, double alpha)
         : H(_H) {
         CHECK(H->cardinality() > 0) << "cardinality <= 0";
         CHECK(H->cardinality() < 100000) << "very large cardinality: "
                                          << H->cardinality();
-
         init_bit = true;
-
         CHECK(alpha > 0)              << "alpha = "    << alpha;
         CHECK(alpha < 10000)          << "alpha = "    << alpha;
         CHECK(default_discount < 1.0) << "discount = " << default_discount;
-
         size_t d;
         discounts[0] = -1.0;
         discounts[1] = 0.62;
@@ -117,22 +111,14 @@ struct FixedDepthHPYP {
             alphas[d] = alphas[d-1] * discounts[d-1];
             d++;
         }
-
-        // LOG(INFO) << ""
-        // for(d=0; d<=MAX_DEPTH; ++d) {
-        //     LOG(500) << d << " " << discounts[d] << " " << alphas[d];
-        // }
-        // LOG(INFO) << "Alphabet size = " << H->cardinality();
-
-        // Make the root node
         root = std::make_unique<Node>();
     }
 
-    FixedDepthHPYP(BaseMeasure* _H)
+    FixedDepthHPYP(std::shared_ptr<BaseMeasure> _H)
         : FixedDepthHPYP(_H, default_alpha) {}
 
     // Forbid copy constructor and assignment
-    FixedDepthHPYP(FixedDepthHPYP const&) = delete;
+    FixedDepthHPYP(FixedDepthHPYP const&)            = delete;
     FixedDepthHPYP& operator=(FixedDepthHPYP const&) = delete;
 
     // Retrieve the root
@@ -255,7 +241,9 @@ struct FixedDepthHPYP {
             auto node = node_storage[depth];
             auto d = discounts.at(depth);
             auto a = alphas.at(depth);
-            removed_table = restaurant.removeCustomer(node->get_payload(), obs, d);
+            removed_table = restaurant.removeCustomer(node->get_payload(),
+                                                      obs,
+                                                      d);
             depth --;
             if (removed_table) total_n_tables --;
         } while(depth > 0 && removed_table);
@@ -287,7 +275,9 @@ struct FixedDepthHPYP {
                                           discounts.at(depth),
                                           alphas.at(depth));
             } else {
-                p = restaurant.computeProbability(node->get_payload(), obs, p,
+                p = restaurant.computeProbability(node->get_payload(),
+                                                  obs,
+                                                  p,
                                                   discounts.at(depth),
                                                   alphas.at(depth));
             }
@@ -307,36 +297,33 @@ struct FixedDepthHPYP {
         return log(prob(start, stop, obs));
     }
 
-  double prob(const Context& prefix, T obs) const {
+    double prob(const Context& prefix, T obs) const {
         CHECK(prefix.size() > 0);
         return prob(prefix.begin(), prefix.end(), obs);
     }
 
-  double log_new_prob(const Context& prefix, T obs) const {
-    CHECK(false) << "TODO";
-    return 0;
-  }
+    double log_new_prob(const Context& prefix, T obs) const {
+        CHECK(false) << "TODO";
+        return 0;
+    }
 
-  double log_cache_prob(const Context& prefix, T obs) const {
-    CHECK(false) << "TODO";
-    return 0;
-  }
+    double log_cache_prob(const Context& prefix, T obs) const {
+        CHECK(false) << "TODO";
+        return 0;
+    }
 
     double log_prob(const Context& prefix, T obs) const {
         CHECK(prefix.size() > 0);
         return log(prob(prefix, obs));
     }
 
-    // discrete_distribution<T> dist(const Context& prefix) const {
-    //     discrete_distribution<T> ret;
-    //     for(size_t t = 0; t < H->cardinality(); ++t) {
-    //         ret.push_back_prob( t, prob(prefix, t) );
-    //     }
-    //     return ret;
-    // }
-
     size_t cardinality() const {
         return H->cardinality();
+    }
+
+    template<class Archive>
+    void serialize(Archive & archive) {
+        archive( discounts, alphas, H, root);
     }
 };
 

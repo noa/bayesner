@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <omp.h>
 
+#include <nn/log.hpp>
 #include <nn/mu.hpp>
 
 typedef std::mt19937 RandomEngine;

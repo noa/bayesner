@@ -97,8 +97,8 @@ namespace nn {
         bool frozen { false };
         typename emit_t::param emit_param;
 
-        std::unique_ptr<base_t> H {nullptr};                 // base distrib
-        std::unique_ptr<tran_t> T {nullptr};                 // context model
+        std::shared_ptr<base_t> H; // base distrib
+        std::unique_ptr<tran_t> T; // context model
         std::unordered_map<sym, std::unique_ptr<emit_t>> E;  // emission models
 
         FilterProposal prop { FilterProposal::HYBRID };
@@ -131,7 +131,6 @@ namespace nn {
               eos_tag     { corpus.tagtab.size()   },
               symtab(corpus.symtab),
               tagtab(corpus.tagtab) {
-
                   typename emit_t::param emit_param;
                   emit_param.discount = 0.5;
                   emit_param.alpha    = 1.0;
@@ -145,7 +144,7 @@ namespace nn {
                       LOG(INFO) << kv.first << " : " << kv.second;
                   }
                   LOG(INFO) << "Total number of tags: " << num_tags_total;
-                  H = std::make_unique<base_t>();
+                  H = std::make_shared<base_t>();
                   std::set<size_t> tags;
                   for(auto k : tagtab.get_key_set()) {
                       tags.insert(k);
@@ -167,7 +166,7 @@ namespace nn {
                   // Add EOS
                   CHECK(!tags.count(eos_tag)) << "logic error";
                   H->add(eos_tag, 1.0);
-                  auto tran_model = std::make_unique<tran_t>( H.get() );
+                  auto tran_model = std::make_unique<tran_t>( H );
                   add_transition_model( std::move(tran_model) );
                   LOG(INFO) << "Num emission models: " << num_emission_model();
                   CHECK(num_emission_model() == corpus.tagtab.size()) << "tag size mismatch";

@@ -29,6 +29,9 @@
 #include <nn/utils.hpp>
 #include <nn/restaurant_interface.hpp>
 
+#include <cereal/types/utility.hpp>
+#include <cereal/types/vector.hpp>
+#include <cereal/types/unordered_map.hpp>
 #include <cereal/types/map.hpp>
 
 namespace nn {
@@ -142,13 +145,6 @@ namespace nn {
         TypeVector getTypeVector(void* payloadPtr) const;
 
         bool addCustomer(void* payloadPtr,
-                         Dish type,
-                         double parentProbability,
-                         double discount,
-                         double concentration) const;
-
-        bool addCustomer(bool sharing_table,
-                         void*  payloadPtr,
                          Dish type,
                          double parentProbability,
                          double discount,
@@ -391,59 +387,6 @@ namespace nn {
             typeVector.push_back(it->first);
         }
         return typeVector;
-    }
-
-    template <typename Dish>
-    bool SimpleFullRestaurant<Dish>::addCustomer(
-        bool sharing_table,
-        void*  payloadPtr,
-        Dish type,
-        double parentProbability,
-        double discount,
-        double concentration) const {
-
-        CHECK(false) << "untested";
-
-        Payload& payload = *((Payload*)payloadPtr);
-        auto& arrangement = payload.tableMap[type];
-        std::vector<l_type>& tables = arrangement.second;
-
-        ++payload.sumCustomers; // c
-        ++arrangement.first; // cw
-
-        //assert(!(arrangement.first == 1 && sharing_table));
-
-        if (arrangement.first == 1) {
-            // first customer sits at first table
-            tables.push_back(1);
-            ++payload.sumTables;
-            return true;
-        }
-
-        // probs for old tables: \propto cwk - d
-        d_vec tableProbs(tables.size() + 1, 0);
-        for(size_t i = 0; i < tables.size(); ++i) {
-            tableProbs[i] = tables[i] - discount;
-        }
-
-        // prob for new table: \propto (alpha + d*t)*P0
-        // this can be 0 for the first customer if concentration=0, but that is ok
-        tableProbs[tables.size()] = (concentration + discount*payload.sumTables)*parentProbability;
-
-        // choose table for customer to sit at
-        auto table = nn::sample_unnormalized_pdf(tableProbs, nn::rng::get());
-        assert(table <= tables.size());
-
-        if(table == tables.size()) {
-            // sit at new table
-            tables.push_back(1);
-            ++payload.sumTables;
-            return true;
-        } else {
-            // existing table
-            ++tables[table];
-            return false;
-        }
     }
 
     template <typename Dish>

@@ -26,6 +26,7 @@
 #include <nn/log.hpp>
 #include <nn/utils.hpp>
 
+#include <cereal/types/memory.hpp>
 #include <cereal/types/unordered_map.hpp>
 
 namespace nn {
@@ -116,10 +117,6 @@ namespace nn {
     class hash_node {
         R r;
         std::unordered_map<T, std::unique_ptr<hash_node>> kids;
-
-        //void* crp  {nullptr};   // CRP sufficient statistics
-        //void* data {nullptr};   // additional data required by the CRP
-
         std::unique_ptr<typename R::Payload> crp;
 
     public:
@@ -146,6 +143,10 @@ namespace nn {
             return kids[t].get();
         }
 
+        bool has(T t) {
+            return kids.count(t) > 0;
+        }
+
         hash_node* get_or_make(T t) {
             if(kids.count(t) == 0) {
                 return make(t);
@@ -153,10 +154,10 @@ namespace nn {
             return get(t);
         }
 
-        size_t getC()    const { return r.getC(crp);    };
-        size_t getC(T t) const { return r.getC(crp, t); };
-        size_t getT()    const { return r.getT(crp);    };
-        size_t getT(T t) const { return r.getT(crp, t); };
+        size_t getC()    const { return r.getC(crp.get());    };
+        size_t getC(T t) const { return r.getC(crp.get(), t); };
+        size_t getT()    const { return r.getT(crp.get());    };
+        size_t getT(T t) const { return r.getT(crp.get(), t); };
 
         std::string str(const T& t) {
             std::stringstream ss;
@@ -175,6 +176,11 @@ namespace nn {
                 }
             }
             return ret;
+        }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( kids, crp );
         }
     };
 

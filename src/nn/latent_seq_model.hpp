@@ -31,19 +31,19 @@ namespace nn {
 
     template<typename sym_t, typename base_t, typename dist_t>
     class LatentSequenceModel {
-        base_t H;
+        std::shared_ptr<base_t> H;
         std::unordered_map<size_t, std::unique_ptr<dist_t>> E;
         std::unordered_map<size_t, size_t> counts;
         typedef std::vector<sym_t> seq_t;
-
         typedef PrefixMap<size_t,size_t> matcher_t;
         std::unordered_map<size_t, matcher_t> matchers;
 
     public:
         LatentSequenceModel(size_t nsym,
-                            std::unordered_set<size_t> types) : H(nsym) {
+                            std::unordered_set<size_t> types)
+            : H(std::make_shared<base_t>(nsym)) {
             for (auto t : types) {
-                auto e = std::make_unique<dist_t>(&H);
+                auto e = std::make_unique<dist_t>(H);
                 E[t] = std::move(e);
                 matchers.emplace(t, matcher_t());
             }

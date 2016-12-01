@@ -41,7 +41,7 @@ namespace nn {
         uint_str_table symtab;
         uint_str_table tagtab;
 
-        std::unique_ptr<base_type> H;
+        std::shared_ptr<base_type> H;
         std::unique_ptr<tran_type> T;
         std::unordered_map<sym, std::unique_ptr<emit_type>> E;
 
@@ -144,7 +144,7 @@ namespace nn {
             freeze(); // don't add any emission models past this point
 
             // Add transition model
-            H = std::make_unique<base_type>();
+            H = std::make_shared<base_type>();
 
             // Prior
             for(auto tag=0; tag < tagtab.size(); ++tag) {
@@ -160,7 +160,7 @@ namespace nn {
             }
             CHECK(H->cardinality() == tagtab.size()*2);
 
-            auto tran_model = std::make_unique<tran_type>( H.get() );
+            auto tran_model = std::make_unique<tran_type>( H );
             add_transition_model( std::move(tran_model) );
         }
 
