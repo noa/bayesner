@@ -30,6 +30,10 @@
 #include <nn/log.hpp>
 #include <nn/rng.hpp>
 
+#include <cereal/types/string.hpp>
+#include <cereal/types/unordered_map.hpp>
+#include <cereal/types/unordered_set.hpp>
+
 namespace nn {
 
     template<typename K = size_t, typename V = std::string>
@@ -86,6 +90,11 @@ namespace nn {
 
         const std::unordered_set<K>& get_key_set() const {
             return key_set;
+        }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive(symtab, inv_symtab, key_set, frozen);
         }
     };
 
