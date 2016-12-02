@@ -41,6 +41,9 @@
 #include <nn/segmental_sequence_memoizer.hpp>
 #include <nn/latent_segmental_pyp_lm.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/archives/binary.hpp>
+
 using namespace nn;
 
 DEFINE_string(unlabeled, "", "path to unlabeled data for training");
@@ -49,6 +52,7 @@ DEFINE_string(test,  "data/conll/eng/valid.utf8", "path to test data");
 DEFINE_string(gazetteer, "", "path to gazetteer");
 DEFINE_string(mixed, "", "path to partially annotated data for inference");
 DEFINE_string(out_path, "pred.txt", "output path for predictions");
+DEFINE_string(model_path, "model.ser", "path to save/load model");
 DEFINE_uint64(max_gazetteer_train, 50000, "maximum number of gazetteer items");
 DEFINE_string(bos, "<bos>", "beginning-of-string symbol");
 DEFINE_string(eos, "<eos>", "end-of-string symbol");
@@ -59,6 +63,9 @@ DEFINE_uint64(nseeds, 1024, "number of seeds");
 DEFINE_uint64(nthreads, 16, "number of threads");
 DEFINE_bool(entity_only, false, "only train the entity models then quit");
 DEFINE_bool(classify, false, "assume the segmentation is given");
+DEFINE_bool(train_only, false, "only do training");                        // TODO
+DEFINE_bool(test_only, false, "only run test");                            // TODO
+DEFINE_bool(predict_loop, false, "predict tags for each line from stdin"); // TODO
 DEFINE_bool(print_errors, false, "display errors");
 DEFINE_bool(fine_grained_context, false, "predict fine-grained context tags");
 DEFINE_uint64(status_interval, 500, "status interval (instances)");
@@ -78,6 +85,27 @@ DEFINE_string(resampling, "none", "which resampling method to use");
 DEFINE_uint64(nparticles, 16, "number of particles used for gazetteer filter");
 DEFINE_uint64(nmcmc_iter, 10, "number of MCMC iterations");
 DEFINE_string(mode, "smc", "smc | pgibbs");
+
+template<typename Model>
+std::unique_ptr<Model> save_model(std::unique_ptr<Model> model) {
+    std::string fn = FLAGS_model_path;
+    std::ofstream os(fn, std::ios::binary);
+    cereal::BinaryOutputArchive oarchive(os);
+    oarchive(model);
+    return model;
+}
+
+template<typename Model>
+std::unique_ptr<Model> load_model() {
+    std::string fn = FLAGS_model_path;
+    std::unique_ptr<Model> model;
+    {
+        std::ofstream is(fn, std::ios::binary);
+        cereal::BinaryInputArchive iarchive(is);
+        iarchive(model);
+    }
+    return model;
+}
 
 bool check_output(nn::instances test, std::string path) {
     std::string line;
@@ -105,7 +133,9 @@ bool check_output(nn::instances test, std::string path) {
     return true;
 }
 
-template<typename Model, typename Corpus>
+template<typename Model,
+         typename Corpus = CoNLLCorpus<>
+         >
 std::unique_ptr<Model> train_model(const Corpus& corpus,
                                    const instances& train,
                                    const instances& gaz,
@@ -143,12 +173,17 @@ std::unique_ptr<Model> train_model(const Corpus& corpus,
     LOG(INFO) << "TRAIN tag histogram:";
     LOG(INFO) << tag_hist.count_str();
     alen /= static_cast<double>(ntag);
-    LOG(INFO) << "TRAIN mean tag len: " << alen;
-    LOG(INFO) << "...done in: " << prettyprint(toc());
+    LOG(INFO) << "TRAIN mean tag len: "   << alen;
+    LOG(INFO) << "...done in: "           << prettyprint(toc());
+    LOG(INFO) << "Serializing model to: " << FLAGS_model_path;
+    //m = save_model( std::move(m) );
+    LOG(INFO) << "Done.";
     return m;
 }
 
-template<typename Model, typename Corpus>
+template<typename Model,
+         typename Corpus = CoNLLCorpus<>
+         >
 void run_inference(instances train,
                    instances gaz,
                    instances unlabeled,
@@ -308,11 +343,6 @@ int main(int argc, char **argv) {
             gaz = corpus.read(FLAGS_gazetteer);
         }
 
-        // Read test data
-        LOG(INFO) << "Reading test data: " << FLAGS_test;
-        auto test = corpus.read(FLAGS_test);
-        LOG(INFO) << "Read " << test.size() << " test instances.";
-
         // Optionally: read unlabeled data
         instances unlabeled;
         if (FLAGS_unlabeled != "") {
@@ -337,6 +367,16 @@ int main(int argc, char **argv) {
         // Symbol statistics
         size_t nsym = corpus.symtab.size();
         LOG(INFO) << nsym << " symbols in the alphabet";
+
+        if(FLAGS_train_only) {
+            train_model<HSM>(corpus,train,gaz,unlabeled);
+            return 0;
+        }
+
+        // Read test data
+        LOG(INFO) << "Reading test data: " << FLAGS_test;
+        auto test = corpus.read(FLAGS_test);
+        LOG(INFO) << "Read " << test.size() << " test instances.";
 
         if (FLAGS_model == "hsm") {
             LOG(INFO) << "Model: hidden sequence memoizer";

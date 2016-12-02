@@ -21,8 +21,13 @@
 
 #include <vector>
 
+#include <nn/data.hpp>
+#include <nn/uniform.hpp>
 #include <nn/mutable_symtab.hpp>
 #include <nn/adapted_seq_model.hpp>
+#include <nn/fixed_depth_hpyp.hpp>
+
+#include <cereal/archives/binary.hpp>
 
 namespace nn {
     enum class HSMProposal { BASELINE };
@@ -47,10 +52,10 @@ namespace nn {
 
         bool frozen { false };
 
-        syms BOS;         // beginning of string obs
-        syms EOS;         // end of string obs
+        syms BOS; // beginning of string obs
+        syms EOS; // end of string obs
 
-        sym context_tag;  // model "other" tag index
+        sym context_tag; // model "other" tag index
 
         sym context_idx;
         sym eos_idx;
@@ -580,6 +585,25 @@ namespace nn {
             default: CHECK(false) << "unsupported proposal";
             };
             CHECK(false) << "sanity";
+        }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive(prop,
+                    symtab,
+                    tagtab,
+                    H,
+                    T,
+                    E,
+                    frozen,
+                    BOS,
+                    EOS,
+                    context_tag,
+                    context_idx,
+                    eos_idx,
+                    n_transition_observed,
+                    n_emission_observed
+                    );
         }
 
         struct writer {

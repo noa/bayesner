@@ -29,6 +29,8 @@
 #include <nn/simple_seq_model.hpp>
 #include <nn/seq_pyp.hpp>
 
+#include <cereal/types/memory.hpp>
+
 namespace nn {
 
     template<typename T = size_t,
@@ -40,13 +42,13 @@ namespace nn {
         typedef std::pair<double, double> prm;
         typedef std::vector<T> seq_t;
 
-        std::unique_ptr<H> base;
+        std::shared_ptr<H> base;
         std::unique_ptr<A> crp;
         prm p;
 
-        const T BOS;
-        const T EOS;
-        const T SPACE;
+        T BOS;
+        T EOS;
+        T SPACE;
 
     public:
         struct param {
@@ -56,17 +58,23 @@ namespace nn {
             T SPACE;
             double discount {0.1};
             double alpha    {1.0};
+
+            template<class Archive>
+            void serialize(Archive & archive) {
+                archive( nsyms, BOS, EOS, SPACE, discount, alpha );
+            }
         };
 
+        adapted_seq_model() {};
         adapted_seq_model(param p) : p(p.discount, p.alpha),
                                      BOS(p.BOS),
                                      EOS(p.EOS),
                                      SPACE(p.SPACE) {
-            base = std::make_unique<H>(p.nsyms, p.BOS, p.EOS);
+            base = std::make_shared<H>(p.nsyms, p.BOS, p.EOS);
             crp = std::make_unique<A>(p.BOS, p.EOS, p.SPACE);
         }
 
-        H* get_base() const { return base.get(); }
+        std::shared_ptr<H> get_base() const { return base; }
 
         double log_prob(const seq_t& seq) const {
             auto log_p0 = base->log_prob(seq);
@@ -142,6 +150,11 @@ namespace nn {
 
         discrete_distribution<seq_t> match(const seq_t& seq) {
             CHECK(false) << "unimplemented";
+        }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( base, crp, p, BOS, EOS, SPACE );
         }
     };
 };

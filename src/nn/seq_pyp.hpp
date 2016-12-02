@@ -25,6 +25,8 @@
 #include <nn/log.hpp>
 #include <nn/restaurants.hpp>
 
+#include <cereal/types/memory.hpp>
+
 namespace nn {
 
 template <typename S,
@@ -82,6 +84,11 @@ public:
     bool remove(const T& obs, double d, double a) override {
         auto removed_table = restaurant.removeCustomer(crp.get(), obs, d);
         return removed_table;
+    }
+
+    template<class Archive>
+    void serialize(Archive & archive) {
+        archive( crp );
     }
 };
 

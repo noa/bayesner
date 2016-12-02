@@ -33,9 +33,9 @@ namespace nn {
              typename M = FixedDepthHPYP<T, T, H, 7>
              >
     class simple_seq_model {
-        static constexpr double STOP_WEIGHT { 5.0 };
-
         typedef std::vector<T> seq_t; // context vector
+
+        static constexpr double STOP_WEIGHT { 5.0 };
 
         const T BOS;
         const T EOS;
@@ -48,8 +48,19 @@ namespace nn {
             size_t nsyms;
             T BOS;
             T EOS;
+
+            template<class Archive>
+            void serialize(Archive & archive) {
+                archive( nsyms, BOS, EOS );
+            }
         };
 
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( BOS, EOS, base, model );
+        }
+
+        simple_seq_model() {}
         simple_seq_model(size_t nsyms, T _BOS, T _EOS) : BOS(_BOS), EOS(_EOS) {
             base  = std::make_shared<H>(nsyms);
             model = std::make_unique<M>(base);

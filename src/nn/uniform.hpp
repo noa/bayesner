@@ -56,6 +56,16 @@ namespace nn {
         double Z {0};
 
     public:
+        HashIntegralMeasure() {}
+
+        HashIntegralMeasure(size_t nsyms, double w) {
+            for(size_t i=0; i<nsyms; ++i) {
+                add(i, w);
+            }
+        }
+
+        HashIntegralMeasure(size_t nsyms) : HashIntegralMeasure(nsyms, 1.0) {}
+
         double prob(T t)     const { return weight.at(t)/Z; }
         double log_prob(T t) const { return log(prob(t));   }
         double w(T t)        const { return weight.at(t);   }
