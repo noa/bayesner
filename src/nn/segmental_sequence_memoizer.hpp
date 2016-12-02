@@ -97,7 +97,7 @@ namespace nn {
         bool frozen { false };
         typename emit_t::param emit_param;
 
-        std::shared_ptr<base_t> H; // base distrib
+        base_t H;                  // base distrib
         std::unique_ptr<tran_t> T; // context model
         std::unordered_map<sym, std::unique_ptr<emit_t>> E;  // emission models
 
@@ -105,8 +105,8 @@ namespace nn {
 
         const double STOP_PROB {0.9};
 
-        const uint_str_table& symtab;
-        const uint_str_table& tagtab;
+        uint_str_table symtab;
+        uint_str_table tagtab;
 
         // Filter diagnostics:
         size_t n_sampled_between_start {0};
@@ -144,7 +144,6 @@ namespace nn {
                       LOG(INFO) << kv.first << " : " << kv.second;
                   }
                   LOG(INFO) << "Total number of tags: " << num_tags_total;
-                  H = std::make_shared<base_t>();
                   std::set<size_t> tags;
                   for(auto k : tagtab.get_key_set()) {
                       tags.insert(k);
@@ -154,18 +153,18 @@ namespace nn {
                           const double a = 2.0;
                           LOG(INFO) << "Prior for context tag " << context_tag
                                     << " = " << a;
-                          H->add(k, a);
+                          H.add(k, a);
                       }
                       else {
                           const double a = 1.0;
                           LOG(INFO) << "Prior for tag " << k
                                     << " = " << a;
-                          H->add(k, a);
+                          H.add(k, a);
                       }
                   }
                   // Add EOS
                   CHECK(!tags.count(eos_tag)) << "logic error";
-                  H->add(eos_tag, 1.0);
+                  H.add(eos_tag, 1.0);
                   auto tran_model = std::make_unique<tran_t>( H );
                   add_transition_model( std::move(tran_model) );
                   LOG(INFO) << "Num emission models: " << num_emission_model();
@@ -416,8 +415,8 @@ namespace nn {
                                         emit_param.BOS,
                                         emit_param.SPACE,
                                         emit_param.EOS);
-                auto H = get_emission_model(tag)->get_base();
-                H->observe(segment);
+                auto emit_base = get_emission_model(tag)->get_base();
+                emit_base->observe(segment);
                 std::advance(it, len);
             }
             CHECK(it == words.end()-1);

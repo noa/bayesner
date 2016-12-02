@@ -18,6 +18,10 @@ add_executable(mutable_symbol_table_test mutable_symtab_test.cpp)
 target_link_libraries(mutable_symbol_table_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 add_test(mutable_symbol_table_test mutable_symbol_table_test)
 
+add_executable(simple_seq_model_test simple_seq_model_test.cpp)
+target_link_libraries(simple_seq_model_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+add_test(simple_seq_model_test simple_seq_model_test)
+
 add_executable(adapted_seq_model_test adapted_seq_model_test.cpp)
 target_link_libraries(adapted_seq_model_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 add_test(adapted_seq_model_test adapted_seq_model_test)

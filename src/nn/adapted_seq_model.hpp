@@ -42,8 +42,9 @@ namespace nn {
         typedef std::pair<double, double> prm;
         typedef std::vector<T> seq_t;
 
-        std::shared_ptr<H> base;
+        std::unique_ptr<H> base;
         std::unique_ptr<A> crp;
+
         prm p;
 
         T BOS;
@@ -70,11 +71,11 @@ namespace nn {
                                      BOS(p.BOS),
                                      EOS(p.EOS),
                                      SPACE(p.SPACE) {
-            base = std::make_shared<H>(p.nsyms, p.BOS, p.EOS);
+            base = std::make_unique<H>(p.nsyms, p.BOS, p.EOS);
             crp = std::make_unique<A>(p.BOS, p.EOS, p.SPACE);
         }
 
-        std::shared_ptr<H> get_base() const { return base; }
+        H* get_base() const { return base.get(); }
 
         double log_prob(const seq_t& seq) const {
             auto log_p0 = base->log_prob(seq);

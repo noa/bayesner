@@ -29,7 +29,7 @@
 namespace nn {
 
     template<typename T = size_t,
-             typename H = SimpleDiscreteMeasure<T>,
+             typename H = HashIntegralMeasure<T>,
              typename M = FixedDepthHPYP<T, T, H, 7>
              >
     class simple_seq_model {
@@ -40,8 +40,8 @@ namespace nn {
         T BOS;
         T EOS;
 
-        std::shared_ptr<H> base;
-        std::shared_ptr<M> model;
+        H base;
+        std::unique_ptr<M> model;
 
     public:
         struct param {
@@ -50,45 +50,40 @@ namespace nn {
             T EOS;
         };
 
-        template<class Archive>
-        void serialize(Archive & archive) {
-            archive( BOS, EOS, base, model );
-        }
-
         simple_seq_model() {}
-        simple_seq_model(size_t nsyms, T _BOS, T _EOS) : BOS(_BOS), EOS(_EOS) {
-            base  = std::make_shared<H>(nsyms);
-            model = std::make_shared<M>(base);
-            init();
-            debug_log_info();
+        simple_seq_model(size_t nsyms, T _BOS, T _EOS)
+            : BOS(_BOS), EOS(_EOS), base(nsyms) {
+            H base(nsyms);
+            model = std::make_unique<M>(base);
+            //init();
+            //debug_log_info();
         }
 
         simple_seq_model(param p) : simple_seq_model(p.nsyms, p.BOS, p.EOS) {}
 
-        void init() {
-            base->set_weight(EOS,
-                             static_cast<double>(base->cardinality())/STOP_WEIGHT);
-        }
+        // void init() {
+        //     base.set_weight(EOS,
+        //                     static_cast<double>(base.cardinality())/STOP_WEIGHT);
+        // }
 
-        void debug_log_info() {
-            DLOG(INFO) << "H cardinality: " << base->cardinality() << " BOS: " << BOS << " EOS: " << EOS << " pr(EOS) = " << base->prob(EOS);
-        }
+        // void debug_log_info() {
+        //     DLOG(INFO) << "H cardinality: " << base.cardinality() << " BOS: " << BOS << " EOS: " << EOS << " pr(EOS) = " << base.prob(EOS);
+        // }
 
         T get_initial_symbol()         { return BOS;   }
         T get_initial_state()          { return BOS;   }
         T get_final_symbol()           { return EOS;   }
         T get_final_state()            { return EOS;   }
-        std::shared_ptr<H> get_base()  { return base;  }
-        std::shared_ptr<M> get_model() { return model; }
+
+        H get_base()   { return model->get_base(); }
+        M* get_model() { return model.get();      }
 
         double log_prob(const seq_t& seq) const {
             CHECK(seq.front() == BOS) << "seq doesn't start with BOS";
             double ret = 0.0;
             auto start = seq.begin();
             for(auto iter = std::next(start); iter != seq.end(); iter++) {
-                LOG(INFO) << "iter = " << *iter;
-                auto lp = model->log_prob(start, iter, *iter);
-                ret += lp;
+                ret += model->log_prob(start, iter, *iter);
             }
             return ret;
         }
@@ -112,15 +107,9 @@ namespace nn {
         void observe(const seq_t& seq) {
             CHECK(seq.front() == BOS) << "seq doesn't start with BOS";
             CHECK(seq.back() == EOS) << "seq doesn't stop with EOS";
-            try {
-                auto start = seq.begin();
-                for(auto iter = std::next(start); iter != seq.end(); iter++) {
-                    model->observe(start, iter, *iter);
-                }
-            }
-            catch (const std::out_of_range& oor) {
-                std::cerr << "Out of Range error: " << oor.what() << '\n';
-                exit(1);
+            auto start = seq.begin();
+            for(auto iter = std::next(start); iter != seq.end(); iter++) {
+                model->observe(start, iter, *iter);
             }
         }
 
@@ -137,32 +126,39 @@ namespace nn {
         // WARNING: This assumes symbols are contiguous
         // e.g.  0, 1, 2
         // NOT:  0, 2, 3
-        nn::discrete_distribution<T> dist(const seq_t& context, bool include_final = false) const {
-            T s;
-            VLOG(1000) << "base cardinality: " << base.cardinality();
-            VLOG(1000) << "include final? " << include_final;
-            nn::discrete_distribution<T> ret;
-            for(s=0; s<base->cardinality(); ++s) {
-                //if(s != EOS && s != BOS) {
-                CHECK(s != BOS) << "unexpected symbol: " << BOS << " BOS = " << BOS << " EOS = " << EOS;
-                if(s != EOS) {
-                    VLOG(1000) << "adding transition to " << s;
-                    ret.push_back_prob(s, model->prob(context, s));
-                }
-            }
-            if(context.size() > 0 && include_final) {
-                VLOG(1000) << "adding (final) transition to " << EOS;
-                ret.push_back_prob(EOS, model->prob(context, EOS)); // stop probability
-            }
-            return ret;
-        }
+        // nn::discrete_distribution<T> dist(const seq_t& context, bool include_final = false) const {
+        //     T s;
+        //     VLOG(1000) << "base cardinality: " << base.cardinality();
+        //     VLOG(1000) << "include final? " << include_final;
+        //     nn::discrete_distribution<T> ret;
+        //     for(s=0; s<base.cardinality(); ++s) {
+        //         //if(s != EOS && s != BOS) {
+        //         CHECK(s != BOS) << "unexpected symbol: " << BOS << " BOS = " << BOS << " EOS = " << EOS;
+        //         if(s != EOS) {
+        //             VLOG(1000) << "adding transition to " << s;
+        //             ret.push_back_prob(s, model->prob(context, s));
+        //         }
+        //     }
+        //     if(context.size() > 0 && include_final) {
+        //         VLOG(1000) << "adding (final) transition to " << EOS;
+        //         ret.push_back_prob(EOS, model->prob(context, EOS)); // stop probability
+        //     }
+        //     return ret;
+        // }
 
-        void set_prior(const std::map<size_t, double>& prior) {
-            LOG(INFO) << "setting symbol priors:";
-            for(auto keyval : prior) {
-                LOG(INFO) << keyval.first << " weight = " << keyval.second;
-                base->set_weight(keyval.first, keyval.second);
-            }
+        // TODO go back to storing references to the base, otherwise this doesn't work
+
+        // void set_prior(const std::map<size_t, double>& prior) {
+        //     LOG(INFO) << "setting symbol priors:";
+        //     for(auto keyval : prior) {
+        //         LOG(INFO) << keyval.first << " weight = " << keyval.second;
+        //         base.set_weight(keyval.first, keyval.second);
+        //     }
+        // }
+
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( BOS, EOS, base, model );
         }
     };
 };

@@ -29,7 +29,7 @@ namespace nn {
 
     template<typename T = size_t,
              typename C = size_t,
-             typename H = SimpleDiscreteMeasure<T>,
+             typename H = HashIntegralMeasure<T>,
              typename M = FixedDepthHPYP<T, C, H, 5>
              >
     class seq_model {

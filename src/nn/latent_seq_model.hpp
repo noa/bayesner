@@ -27,11 +27,13 @@
 #include <nn/uniform.hpp>
 #include <nn/prefix_matcher.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/types/unordered_map.hpp>
+
 namespace nn {
 
     template<typename sym_t, typename base_t, typename dist_t>
     class LatentSequenceModel {
-        std::shared_ptr<base_t> H;
         std::unordered_map<size_t, std::unique_ptr<dist_t>> E;
         std::unordered_map<size_t, size_t> counts;
         typedef std::vector<sym_t> seq_t;
@@ -39,9 +41,14 @@ namespace nn {
         std::unordered_map<size_t, matcher_t> matchers;
 
     public:
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive(E, counts, matchers);
+        }
+
         LatentSequenceModel(size_t nsym,
-                            std::unordered_set<size_t> types)
-            : H(std::make_shared<base_t>(nsym)) {
+                            std::unordered_set<size_t> types) {
+            base_t H(nsym);
             for (auto t : types) {
                 auto e = std::make_unique<dist_t>(H);
                 E[t] = std::move(e);
@@ -49,17 +56,17 @@ namespace nn {
             }
         }
 
-      double log_new_prob(size_t t, const seq_t& context, sym_t obs) const {
-        CHECK(false) << "TODO";
-        return 0.0;
-      }
+        double log_new_prob(size_t t, const seq_t& context, sym_t obs) const {
+            CHECK(false) << "TODO";
+            return 0.0;
+        }
 
-      double log_cache_prob(size_t t, const seq_t& context, sym_t obs) const {
-        CHECK(false) << "TODO";
-        return 0.0;
-      }
+        double log_cache_prob(size_t t, const seq_t& context, sym_t obs) const {
+            CHECK(false) << "TODO";
+            return 0.0;
+        }
 
-      double log_prob(size_t t, const seq_t& context, sym_t obs) const {
+        double log_prob(size_t t, const seq_t& context, sym_t obs) const {
             return E.at(t)->log_prob(context, obs);
         }
 

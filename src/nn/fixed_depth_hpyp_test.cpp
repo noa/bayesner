@@ -14,8 +14,8 @@ TEST(FixedDepthHPYP, CerealWorks) {
     std::vector<size_t> test { 0, 1, 2, 3, 4 };
     double lp {0};
     {
-        std::shared_ptr<Base> H = std::make_shared<Base>();
-        for(size_t i=0; i<5; ++i) H->add(i, 1.0);
+        Base H;
+        for(size_t i=0; i<5; ++i) H.add(i, 1.0);
         Model model1(H);
         std::vector<size_t> obs { 0, 1, 2, 2, 1, 3, 0, 1, 2, 3, 4 };
         for(auto it = obs.begin()+1; it != obs.end(); ++it) {

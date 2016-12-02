@@ -73,10 +73,10 @@ struct FixedDepthHPYP {
     Restaurant restaurant;
 
     // Base distribution of the HPYP
-    std::shared_ptr<BaseMeasure> H;
+    BaseMeasure H;
 
     // Unique root of context tree
-    std::unique_ptr<Node> root;
+    std::unique_ptr<Node> root {nullptr};
 
     // Diagnostics
     size_t total_n_customers {0};
@@ -84,11 +84,11 @@ struct FixedDepthHPYP {
     bool init_bit            {false};
 
     FixedDepthHPYP() {}
-    FixedDepthHPYP(std::shared_ptr<BaseMeasure> _H, double alpha)
+    FixedDepthHPYP(BaseMeasure _H, double alpha)
         : H(_H) {
-        CHECK(H->cardinality() > 0) << "cardinality <= 0";
-        CHECK(H->cardinality() < 100000) << "very large cardinality: "
-                                         << H->cardinality();
+        CHECK(H.cardinality() > 0) << "cardinality <= 0";
+        CHECK(H.cardinality() < 100000) << "very large cardinality: "
+                                        << H.cardinality();
         init_bit = true;
         CHECK(alpha > 0)              << "alpha = "    << alpha;
         CHECK(alpha < 10000)          << "alpha = "    << alpha;
@@ -114,7 +114,7 @@ struct FixedDepthHPYP {
         root = std::make_unique<Node>();
     }
 
-    FixedDepthHPYP(std::shared_ptr<BaseMeasure> _H)
+    FixedDepthHPYP(BaseMeasure _H)
         : FixedDepthHPYP(_H, default_alpha) {}
 
     // Forbid copy constructor and assignment
@@ -141,12 +141,9 @@ struct FixedDepthHPYP {
         return restaurant.getT(root->get_payload());
     }
 
-    // size_t cardinality() const {
-    //     return H->cardinality();
-    // }
-
     void fill_node_array(typename Context::const_iterator start,
                          typename Context::const_iterator stop) {
+        //LOG(INFO) << "filling node array...";
         // depth 0 is a fill-in for the base distribution; no node is
         // associated with it
         size_t depth = 1;
@@ -176,7 +173,7 @@ struct FixedDepthHPYP {
         ) {
         fill_node_array(start, stop);
         fill_prob_array(obs);
-        LOG(INFO) << "Base prob = " << prob_storage[0];
+        //LOG(INFO) << "Base prob = " << prob_storage[0];
         for(size_t d = 1; d < node_storage_size; ++d) {
             auto node = node_storage[d];
             auto consistent = restaurant.checkConsistency(node->get_payload());
@@ -195,7 +192,9 @@ struct FixedDepthHPYP {
     }
 
     void fill_prob_array(T obs) {
-        prob_storage[0] = H->prob(obs);
+        //LOG(INFO) << "filling prob array...";
+        //LOG(INFO) << "base cardinality: " << H.cardinality();
+        prob_storage[0] = H.prob(obs);
         size_t depth = 1;
         while(depth < node_storage_size) {
             CHECK(node_storage.at(depth) != nullptr);
@@ -262,8 +261,8 @@ struct FixedDepthHPYP {
                 typename Context::const_iterator stop,
                 T obs)
         const {
-        LOG(INFO) << "getting base prob...";
-        double p = H->prob(obs);
+        //LOG(INFO) << "getting base prob...";
+        double p = H.prob(obs);
         //LOG(INFO) << "base prob: " << p;
         Node* node = root.get();
         size_t depth = 1;
@@ -300,7 +299,7 @@ struct FixedDepthHPYP {
                     typename Context::const_iterator stop,
                     T obs)
         const {
-        LOG(INFO) << "obs = " << obs;
+        //LOG(INFO) << "obs = " << obs;
         CHECK(start != stop) << "bad iterator";
         return log(prob(start, stop, obs));
     }
@@ -325,8 +324,12 @@ struct FixedDepthHPYP {
         return log(prob(prefix, obs));
     }
 
+    BaseMeasure get_base() const {
+        return H;
+    }
+
     size_t cardinality() const {
-        return H->cardinality();
+        return H.cardinality();
     }
 
     template<class Archive>
