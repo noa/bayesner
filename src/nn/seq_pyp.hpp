@@ -25,6 +25,7 @@
 #include <nn/log.hpp>
 #include <nn/restaurants.hpp>
 
+#include <cereal/types/vector.hpp>
 #include <cereal/types/memory.hpp>
 
 namespace nn {
@@ -38,6 +39,7 @@ class seq_pyp : public restaurant_interface<T> {
     std::unique_ptr<typename Restaurant::Payload> crp;
 
 public:
+    seq_pyp() {}
     seq_pyp(S _BOS, S _EOS, S _SPACE)
         : crp(std::make_unique<typename Restaurant::Payload>()) {
     }
