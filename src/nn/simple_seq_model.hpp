@@ -48,11 +48,6 @@ namespace nn {
             size_t nsyms;
             T BOS;
             T EOS;
-
-            template<class Archive>
-            void serialize(Archive & archive) {
-                archive( nsyms, BOS, EOS );
-            }
         };
 
         template<class Archive>
@@ -63,7 +58,7 @@ namespace nn {
         simple_seq_model() {}
         simple_seq_model(size_t nsyms, T _BOS, T _EOS) : BOS(_BOS), EOS(_EOS) {
             base  = std::make_shared<H>(nsyms);
-            model = std::make_unique<M>(base);
+            model = std::make_shared<M>(base);
             init();
             debug_log_info();
         }
@@ -79,12 +74,12 @@ namespace nn {
             DLOG(INFO) << "H cardinality: " << base->cardinality() << " BOS: " << BOS << " EOS: " << EOS << " pr(EOS) = " << base->prob(EOS);
         }
 
-        T get_initial_symbol()         { return BOS;         }
-        T get_initial_state()          { return BOS;         }
-        T get_final_symbol()           { return EOS;         }
-        T get_final_state()            { return EOS;         }
-        std::shared_ptr<H> get_base()  { return base;        }
-        std::shared_ptr<M> get_model() { return model;       }
+        T get_initial_symbol()         { return BOS;   }
+        T get_initial_state()          { return BOS;   }
+        T get_final_symbol()           { return EOS;   }
+        T get_final_state()            { return EOS;   }
+        std::shared_ptr<H> get_base()  { return base;  }
+        std::shared_ptr<M> get_model() { return model; }
 
         double log_prob(const seq_t& seq) const {
             CHECK(seq.front() == BOS) << "seq doesn't start with BOS";

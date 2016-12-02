@@ -262,10 +262,13 @@ struct FixedDepthHPYP {
                 typename Context::const_iterator stop,
                 T obs)
         const {
+        LOG(INFO) << "getting base prob...";
         double p = H->prob(obs);
+        //LOG(INFO) << "base prob: " << p;
         Node* node = root.get();
         size_t depth = 1;
         p = pred(node, obs, p, discounts.at(depth), alphas.at(depth));
+        //LOG(INFO) << "prob: " << p;
         if(start == stop) {
             return p;
         }
@@ -297,6 +300,7 @@ struct FixedDepthHPYP {
                     typename Context::const_iterator stop,
                     T obs)
         const {
+        LOG(INFO) << "obs = " << obs;
         CHECK(start != stop) << "bad iterator";
         return log(prob(start, stop, obs));
     }
@@ -327,7 +331,7 @@ struct FixedDepthHPYP {
 
     template<class Archive>
     void serialize(Archive & archive) {
-        archive( discounts, alphas, H, root);
+        archive( discounts, alphas, H, root );
     }
 };
 
