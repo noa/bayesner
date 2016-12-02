@@ -21,7 +21,6 @@ TEST(FixedDepthHPYP, CerealWorks) {
         for(auto it = obs.begin()+1; it != obs.end(); ++it) {
             model1.observe(obs.begin(), it, *it);
         }
-        std::vector<size_t> test { 0, 1, 2, 3, 4 };
         for(auto it = test.begin()+1; it != test.end(); ++it) {
             lp += model1.log_prob(test.begin(), it, *it);
         }
@@ -34,6 +33,7 @@ TEST(FixedDepthHPYP, CerealWorks) {
         std::ifstream is(fn, std::ios::binary);
         cereal::BinaryInputArchive iarchive(is);
         iarchive( model2 );
+        ASSERT_EQ(model2.cardinality(), 5);
         double lp2 {0};
         for(auto it = test.begin()+1; it != test.end(); ++it) {
             lp2 += model2.log_prob(test.begin(), it, *it);

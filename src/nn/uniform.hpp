@@ -98,6 +98,7 @@ namespace nn {
         }
 
     public:
+        SimpleDiscreteMeasure() {}
         SimpleDiscreteMeasure(size_t nitems) {
             for(size_t i = 0; i < nitems; ++i) {
                 weights.push_back(1.0);

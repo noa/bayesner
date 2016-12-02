@@ -37,11 +37,11 @@ namespace nn {
 
         static constexpr double STOP_WEIGHT { 5.0 };
 
-        const T BOS;
-        const T EOS;
+        T BOS;
+        T EOS;
 
         std::shared_ptr<H> base;
-        std::unique_ptr<M> model;
+        std::shared_ptr<M> model;
 
     public:
         struct param {
@@ -84,13 +84,14 @@ namespace nn {
         T get_final_symbol()           { return EOS;         }
         T get_final_state()            { return EOS;         }
         std::shared_ptr<H> get_base()  { return base;        }
-        M* get_model()                 { return model.get(); }
+        std::shared_ptr<M> get_model() { return model;       }
 
         double log_prob(const seq_t& seq) const {
             CHECK(seq.front() == BOS) << "seq doesn't start with BOS";
             double ret = 0.0;
             auto start = seq.begin();
             for(auto iter = std::next(start); iter != seq.end(); iter++) {
+                LOG(INFO) << "iter = " << *iter;
                 auto lp = model->log_prob(start, iter, *iter);
                 ret += lp;
             }
@@ -146,7 +147,7 @@ namespace nn {
             VLOG(1000) << "base cardinality: " << base.cardinality();
             VLOG(1000) << "include final? " << include_final;
             nn::discrete_distribution<T> ret;
-            for(s=0; s<base.cardinality(); ++s) {
+            for(s=0; s<base->cardinality(); ++s) {
                 //if(s != EOS && s != BOS) {
                 CHECK(s != BOS) << "unexpected symbol: " << BOS << " BOS = " << BOS << " EOS = " << EOS;
                 if(s != EOS) {
@@ -165,7 +166,7 @@ namespace nn {
             LOG(INFO) << "setting symbol priors:";
             for(auto keyval : prior) {
                 LOG(INFO) << keyval.first << " weight = " << keyval.second;
-                base.set_weight(keyval.first, keyval.second);
+                base->set_weight(keyval.first, keyval.second);
             }
         }
     };

@@ -141,6 +141,10 @@ struct FixedDepthHPYP {
         return restaurant.getT(root->get_payload());
     }
 
+    // size_t cardinality() const {
+    //     return H->cardinality();
+    // }
+
     void fill_node_array(typename Context::const_iterator start,
                          typename Context::const_iterator stop) {
         // depth 0 is a fill-in for the base distribution; no node is
