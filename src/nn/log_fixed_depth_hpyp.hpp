@@ -70,25 +70,30 @@ struct LogFixedDepthHPYP {
     Restaurant restaurant;
 
     // Base distribution of the HPYP
-    BaseMeasure *H;
+    BaseMeasure H;
 
     // Unique root of context tree
-    std::unique_ptr<Node> root;
-
-    // List of all nodes
-    std::vector<Node*> nodes;
+    std::unique_ptr<Node> root {nullptr};
 
     // Diagnostics
     size_t total_n_customers {0};
     size_t total_n_tables    {0};
     bool init_bit {false};
 
-    LogFixedDepthHPYP(BaseMeasure* _H, double alpha)
-        : H(_H) {
+    template<class Archive>
+    void serialize(Archive & archive) {
+        archive( discounts,
+                 alphas,
+                 H,
+                 root,
+                 total_n_customers,
+                 total_n_tables,
+                 init_bit );
+    }
 
-        // CHECK(H->cardinality() > 0) << "cardinality <= 0";
-        // CHECK(H->cardinality() < 100000) << "very large cardinality: "
-        //                                  << H->cardinality();
+    LogFixedDepthHPYP() {}
+    LogFixedDepthHPYP(BaseMeasure _H, double alpha)
+        : H(_H) {
 
         init_bit = true;
 
@@ -119,11 +124,11 @@ struct LogFixedDepthHPYP {
         root = std::make_unique<Node>();
     }
 
-    LogFixedDepthHPYP(BaseMeasure* _H)
+    LogFixedDepthHPYP(BaseMeasure _H)
         : LogFixedDepthHPYP(_H, default_alpha) {}
 
     // Forbid copy constructor and assignment
-    LogFixedDepthHPYP(LogFixedDepthHPYP const&) = delete;
+    LogFixedDepthHPYP(LogFixedDepthHPYP const&)            = delete;
     LogFixedDepthHPYP& operator=(LogFixedDepthHPYP const&) = delete;
 
     // Retrieve the root
@@ -203,7 +208,7 @@ struct LogFixedDepthHPYP {
   }
 
   void fill_prob_array(T obs) {
-    prob_storage[0] = H->log_prob(obs);
+    prob_storage[0] = H.log_prob(obs);
     size_t depth = 1;
     while (depth < node_storage_size) {
       CHECK(node_storage.at(depth) != nullptr);
@@ -237,9 +242,8 @@ struct LogFixedDepthHPYP {
       depth --;
     } while(depth > 0 && new_table);
     total_n_customers ++;
-    if (new_table) H->observe(obs);
+    if (new_table) H.observe(obs);
     //if (new_table) LOG(INFO) << "final add table!";
-
   }
 
   void observe(const Context& prefix, T obs) {
@@ -266,7 +270,7 @@ struct LogFixedDepthHPYP {
       depth --;
       if (removed_table) total_n_tables --;
     } while(depth > 0 && removed_table);
-    if (removed_table) H->remove(obs);
+    if (removed_table) H.remove(obs);
     total_n_customers --;
   }
 
@@ -280,6 +284,10 @@ struct LogFixedDepthHPYP {
     const {
     return exp(log_prob(start,stop,obs));
   }
+
+    size_t cardinality() const {
+        return H.cardinality();
+    }
 
   double log_new_prob(const Context& prefix, T obs) const {
     CHECK(false) << "TODO";
@@ -299,7 +307,7 @@ struct LogFixedDepthHPYP {
                   typename Context::const_iterator stop,
                   T obs)
     const {
-    double log_p = H->log_prob(obs);
+    double log_p = H.log_prob(obs);
     Node* node = root.get();
     size_t depth = 1;
     log_p = log_pred(node,

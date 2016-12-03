@@ -39,7 +39,7 @@
 #include <nn/adapted_seq_model.hpp>
 #include <nn/hidden_sequence_memoizer.hpp>
 #include <nn/segmental_sequence_memoizer.hpp>
-#include <nn/latent_segmental_pyp_lm.hpp>
+//#include <nn/latent_segmental_pyp_lm.hpp>
 
 #include <cereal/types/memory.hpp>
 #include <cereal/archives/binary.hpp>
@@ -320,7 +320,7 @@ int main(int argc, char **argv) {
     // Run inference
     typedef hidden_sequence_memoizer<>    HSM;
     typedef segmental_sequence_memoizer<> SSM;
-    typedef LatentSegmentalHPYP           SLM;
+    //typedef LatentSegmentalHPYP           SLM;
 
     typedef CoNLLCorpus<> Corpus;
 
@@ -386,10 +386,10 @@ int main(int argc, char **argv) {
             LOG(INFO) << "Model: segmental sequence memoizer";
             run_inference<SSM>(train, gaz, unlabeled, test, FLAGS_out_path, corpus);
         }
-        else if (FLAGS_model == "slm") {
-            LOG(INFO) << "Model: segmental PYP language model";
-            run_inference<SLM>(train, gaz, unlabeled, test, FLAGS_out_path, corpus);
-        }
+        // else if (FLAGS_model == "slm") {
+        //     LOG(INFO) << "Model: segmental PYP language model";
+        //     run_inference<SLM>(train, gaz, unlabeled, test, FLAGS_out_path, corpus);
+        // }
         else {
             CHECK(false) << "unrecognized model: " << FLAGS_model;
         }
@@ -483,10 +483,10 @@ int main(int argc, char **argv) {
                 LOG(INFO) << "Model: segmental sequence memoizer";
                 run_inference<SSM>(train, gaz, unlabeled, test, output_path, corpus);
             }
-            else if (FLAGS_model == "slm") {
-                LOG(INFO) << "Model: segmental PYP language model";
-                run_inference<SLM>(train, gaz, unlabeled, test, output_path, corpus);
-            }
+            // else if (FLAGS_model == "slm") {
+            //     LOG(INFO) << "Model: segmental PYP language model";
+            //     run_inference<SLM>(train, gaz, unlabeled, test, output_path, corpus);
+            // }
             else {
                 CHECK(false) << "unrecognized model: " << FLAGS_model;
             }

@@ -33,3 +33,7 @@ add_test(hidden_sequence_memoizer_test hidden_sequence_memoizer_test)
 add_executable(segmental_sequence_memoizer_test segmental_sequence_memoizer_test.cpp)
 target_link_libraries(segmental_sequence_memoizer_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 add_test(segmental_sequence_memoizer_test segmental_sequence_memoizer_test)
+
+# add_executable(latent_hpyp_test latent_segmental_pyp_lm_test.cpp)
+# target_link_libraries(latent_hpyp_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+# add_test(latent_hpyp_test latent_hpyp_test)

@@ -1,5 +1,18 @@
-// Nicholas Andrews
-// noandrews@gmail.com
+/*
+ * Copyright 2015-2016 Nicholas Andrews
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -13,25 +26,25 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include "mutable_symtab.hpp"
-#include "discrete_distribution.hpp"
-#include "data.hpp"
-#include "seq_model.hpp"
-#include "simple_seq_model.hpp"
-#include "adapted_seq_model_prefix.hpp"
-#include "latent_seq_model.hpp"
-#include "log_fixed_depth_hpyp.hpp"
+#include <nn/mutable_symtab.hpp>
+#include <nn/discrete_distribution.hpp>
+#include <nn/data.hpp>
+#include <nn/seq_model.hpp>
+#include <nn/simple_seq_model.hpp>
+#include <nn/adapted_seq_model_prefix.hpp>
+#include <nn/latent_seq_model.hpp>
+#include <nn/log_fixed_depth_hpyp.hpp>
 
 namespace nn {
 
     class LatentSegmentalHPYP {
         enum class FilterProposal { BASELINE };
 
-        const syms BOS;
-        const syms EOS;
+        syms BOS;
+        syms EOS;
 
-        const sym context_tag;
-        const sym eos_tag;
+        sym context_tag;
+        sym eos_tag;
 
         typedef std::vector<obs_t>                          context_t;
         typedef Uniform<sym>                                uniform_t;
@@ -46,8 +59,8 @@ namespace nn {
 
         const double STOP_PROB {0.75};
 
-        const uint_str_table& symtab;
-        const uint_str_table& tagtab;
+        uint_str_table symtab;
+        uint_str_table tagtab;
 
         // Filter diagnostics:
         size_t n_sampled_between_start {0};
@@ -56,11 +69,13 @@ namespace nn {
         size_t n_sampled_inside_cont   {0};
 
         // Emission model parameters:
-        const size_t bos_sym;
-        const size_t eos_sym;
-        const size_t space_sym;
+        size_t bos_sym;
+        size_t eos_sym;
+        size_t space_sym;
 
     public:
+        LatentSegmentalHPYP() {}
+
         template<typename Corpus>
         LatentSegmentalHPYP(const Corpus& corpus)
             : BOS(corpus.get_bos_obs()),
