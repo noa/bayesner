@@ -29,6 +29,8 @@
 #include <nn/adapted_seq_model.hpp>
 #include <nn/data.hpp>
 
+#include <cereal/types/memory.hpp>
+
 namespace nn {
 
     template<typename T = size_t,
@@ -46,9 +48,9 @@ namespace nn {
         prm p;  // parameters
         A crp;  // adaptor
 
-        const T BOS;
-        const T EOS;
-        const T SPACE;
+        T BOS;
+        T EOS;
+        T SPACE;
 
     public:
         struct param {
@@ -58,8 +60,19 @@ namespace nn {
             T SPACE;
             double discount {0.5};
             double alpha    {0.1};
+
+            template<class Archive>
+            void serialize(Archive & archive) {
+                archive( nsyms, BOS, EOS, SPACE, discount, alpha );
+            }
         };
 
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( matcher, base, p, crp, BOS, EOS, SPACE );
+        }
+
+        adapted_seq_model_prefix() {}
         adapted_seq_model_prefix(param p) : base(p.nsyms, p.BOS, p.EOS),
                                             p(p.discount, p.alpha),
                                             crp(p.BOS, p.EOS, p.SPACE),

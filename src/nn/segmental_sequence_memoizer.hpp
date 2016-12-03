@@ -33,6 +33,9 @@
 #include <nn/simple_seq_model.hpp>
 #include <nn/adapted_seq_model_prefix.hpp>
 
+#include <cereal/types/memory.hpp>
+#include <cereal/types/unordered_map.hpp>
+
 namespace nn {
 
     bool is_range(std::string s) {
@@ -88,11 +91,11 @@ namespace nn {
     class segmental_sequence_memoizer {
         typedef phrase Context;
 
-        const syms BOS; // beginning of string obs
-        const syms EOS; // end of string obs
+        syms BOS; // beginning of string obs
+        syms EOS; // end of string obs
 
-        const sym context_tag;
-        const sym eos_tag;
+        sym context_tag;
+        sym eos_tag;
 
         bool frozen { false };
         typename emit_t::param emit_param;
@@ -109,17 +112,34 @@ namespace nn {
         uint_str_table tagtab;
 
         // Filter diagnostics:
-        size_t n_sampled_between_start {0};
-        size_t n_sampled_between_stop  {0};
-        size_t n_sampled_inside_stop   {0};
-        size_t n_sampled_inside_cont   {0};
+        // size_t n_sampled_between_start {0};
+        // size_t n_sampled_between_stop  {0};
+        // size_t n_sampled_inside_stop   {0};
+        // size_t n_sampled_inside_cont   {0};
 
     public:
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( BOS,
+                     EOS,
+                     context_tag,
+                     eos_tag,
+                     frozen,
+                     H,
+                     T,
+                     E,
+                     prop,
+                     symtab,
+                     tagtab
+                );
+        }
+
+        segmental_sequence_memoizer() {}
         segmental_sequence_memoizer(syms _BOS,
                                     syms _EOS,
                                     sym _context_tag,
-                                    const uint_str_table& _symtab,
-                                    const uint_str_table& _tagtab)
+                                    uint_str_table _symtab,
+                                    uint_str_table _tagtab)
             : BOS(_BOS), EOS(_EOS), context_tag(_context_tag),
               symtab(_symtab), tagtab(_tagtab) {}
 

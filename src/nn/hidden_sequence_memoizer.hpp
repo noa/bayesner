@@ -87,7 +87,7 @@ namespace nn {
         }
 
         hidden_sequence_memoizer() {} // default constructor does no
-                                      // initialization
+                                      // initialization; for cereal
 
         template<typename Corpus>
         hidden_sequence_memoizer(const Corpus& corpus) :

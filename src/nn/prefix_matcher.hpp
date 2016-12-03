@@ -25,6 +25,9 @@
 #include <map>
 #include <utility>
 
+#include <cereal/types/vector.hpp>
+#include <cereal/types/map.hpp>
+
 namespace nn {
 
     template<typename T>
@@ -44,6 +47,11 @@ namespace nn {
         map_t keys;
 
     public:
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( keys );
+        }
+
         void add(const seq_t& key, const V& val) {
             keys[key] = val;
         }
