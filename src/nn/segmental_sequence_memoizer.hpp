@@ -29,6 +29,7 @@
 #include <nn/mutable_symtab.hpp>
 #include <nn/discrete_distribution.hpp>
 #include <nn/data.hpp>
+#include <nn/reader.hpp>
 #include <nn/seq_model.hpp>
 #include <nn/simple_seq_model.hpp>
 #include <nn/adapted_seq_model_prefix.hpp>
@@ -85,7 +86,8 @@ namespace nn {
 
     enum class FilterProposal { CHUNK, BASELINE, HYBRID, PROP1 };
 
-    template<typename base_t = HashIntegralMeasure<sym>,
+    template<typename data_t = CoNLLCorpus<>,
+             typename base_t = HashIntegralMeasure<sym>,
              typename tran_t = FixedDepthHPYP<sym, syms, base_t>,
              typename emit_t = adapted_seq_model_prefix<>>
     class segmental_sequence_memoizer {
@@ -111,6 +113,8 @@ namespace nn {
         uint_str_table symtab;
         uint_str_table tagtab;
 
+        data_t corpus;
+
         // Filter diagnostics:
         // size_t n_sampled_between_start {0};
         // size_t n_sampled_between_stop  {0};
@@ -130,7 +134,8 @@ namespace nn {
                      E,
                      prop,
                      symtab,
-                     tagtab
+                     tagtab,
+                     corpus
                 );
         }
 
@@ -144,13 +149,15 @@ namespace nn {
               symtab(_symtab), tagtab(_tagtab) {}
 
         template<typename Corpus>
-        segmental_sequence_memoizer(const Corpus& corpus)
+        segmental_sequence_memoizer(Corpus corpus)
             : BOS(corpus.get_bos_obs()),
               EOS(corpus.get_eos_obs()),
               context_tag { corpus.get_other_key() },
               eos_tag     { corpus.tagtab.size()   },
               symtab(corpus.symtab),
               tagtab(corpus.tagtab) {
+                  this->corpus = corpus;
+
                   typename emit_t::param emit_param;
                   emit_param.discount = 0.5;
                   emit_param.alpha    = 1.0;

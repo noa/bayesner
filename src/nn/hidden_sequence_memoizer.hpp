@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <nn/data.hpp>
+#include <nn/reader.hpp>
 #include <nn/uniform.hpp>
 #include <nn/mutable_symtab.hpp>
 #include <nn/adapted_seq_model.hpp>
@@ -32,7 +33,8 @@
 namespace nn {
     enum class HSMProposal { BASELINE };
 
-    template<typename base_type = HashIntegralMeasure<sym>,
+    template<typename data_type = CoNLLCorpus<>,
+             typename base_type = HashIntegralMeasure<sym>,
              typename tran_type = FixedDepthHPYP<sym,
                                                  syms,
                                                  base_type>,
@@ -62,6 +64,8 @@ namespace nn {
         size_t n_transition_observed {0};
         size_t n_emission_observed   {0};
 
+        data_type corpus;
+
         static constexpr double default_emit_adaptor_alpha    {1.0};
         static constexpr double default_emit_adaptor_discount {0.5};
 
@@ -90,14 +94,14 @@ namespace nn {
                                       // initialization; for cereal
 
         template<typename Corpus>
-        hidden_sequence_memoizer(const Corpus& corpus) :
+        hidden_sequence_memoizer(Corpus corpus) :
             hidden_sequence_memoizer(corpus,
                                      get_default_emit_adaptor_alpha(corpus.tagtab),
                                      get_default_emit_adaptor_discount(corpus.tagtab),
                                      1.0) {}
 
         template<typename Corpus>
-        hidden_sequence_memoizer(const Corpus& corpus,
+        hidden_sequence_memoizer(Corpus corpus,
                                  std::unordered_map<size_t,double> emit_adaptor_alpha,
                                  std::unordered_map<size_t,double> emit_adaptor_discount,
                                  double tran_alpha) {
@@ -117,10 +121,12 @@ namespace nn {
         };
 
         template<typename Corpus>
-        void init(const Corpus& corpus,
+        void init(Corpus corpus,
                   std::unordered_map<size_t,double> emit_adaptor_alpha,
                   std::unordered_map<size_t,double> emit_adaptor_discount,
                   double tran_alpha) {
+            this->corpus = corpus;
+
             // Sentinel values
             BOS         = corpus.get_bos_obs();
             EOS         = corpus.get_eos_obs();
@@ -172,6 +178,10 @@ namespace nn {
 
         auto get_eos_idx() -> decltype(eos_idx) const { return eos_idx;  }
         size_t num_emission_model()             const { return E.size(); }
+
+        data_type get_corpus() const {
+            return corpus;
+        }
 
         void init(particle& p) const {
             p.tags.clear();
@@ -598,7 +608,8 @@ namespace nn {
                     context_idx,
                     eos_idx,
                     n_transition_observed,
-                    n_emission_observed
+                    n_emission_observed,
+                    corpus
                     );
         }
 

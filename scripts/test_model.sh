@@ -16,7 +16,7 @@ NPARTICLES=64
 NTHREAD=8
 MODEL="--nparticles=$NPARTICLES --mode=$MODE --model=$MODEL"
 
-CMD="$EXE --test=$1 --model_path=$2 $MODEL"
+CMD="$EXE --test=$1 --model_path=$2 --test_only $MODEL"
 echo $CMD
 
 GLOG_logtostderr=1 OMP_NUM_THREADS=$NTHREAD $CMD
