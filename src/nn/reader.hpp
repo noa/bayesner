@@ -28,6 +28,8 @@
 #include <nn/mutable_symtab.hpp>
 #include <nn/data.hpp>
 
+#include <cereal/types/string.hpp>
+
 namespace nn {
 
     std::vector<std::string> &split(const std::string &s,
@@ -98,6 +100,20 @@ namespace nn {
         std::string unk_tag {"?"}; // string value for unknown (latent) tags
 
     public:
+        template<class Archive>
+        void serialize(Archive & archive) {
+            archive( symtab,
+                     tagtab,
+                     bos,
+                     eos,
+                     space,
+                     unk,
+                     other_tag,
+                     frozen,
+                     unk_tag);
+        }
+
+        CoNLLCorpus() {}
         CoNLLCorpus(s_type _bos,   // end of sequence
                     s_type _eos,   // beginning of sequence
                     s_type _space, // space input symbol

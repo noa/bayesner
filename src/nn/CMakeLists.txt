@@ -18,6 +18,10 @@ add_executable(mutable_symbol_table_test mutable_symtab_test.cpp)
 target_link_libraries(mutable_symbol_table_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 add_test(mutable_symbol_table_test mutable_symbol_table_test)
 
+add_executable(reader_test reader_test.cpp)
+target_link_libraries(reader_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+add_test(reader_test reader_test)
+
 add_executable(simple_seq_model_test simple_seq_model_test.cpp)
 target_link_libraries(simple_seq_model_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 add_test(simple_seq_model_test simple_seq_model_test)
@@ -33,7 +37,3 @@ add_test(hidden_sequence_memoizer_test hidden_sequence_memoizer_test)
 add_executable(segmental_sequence_memoizer_test segmental_sequence_memoizer_test.cpp)
 target_link_libraries(segmental_sequence_memoizer_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 add_test(segmental_sequence_memoizer_test segmental_sequence_memoizer_test)
-
-# add_executable(latent_hpyp_test latent_segmental_pyp_lm_test.cpp)
-# target_link_libraries(latent_hpyp_test gtest gtest_main ${Boost_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-# add_test(latent_hpyp_test latent_hpyp_test)
