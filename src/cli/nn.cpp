@@ -63,7 +63,7 @@ DEFINE_uint64(nseeds, 1024, "number of seeds");
 DEFINE_uint64(nthreads, 16, "number of threads");
 DEFINE_bool(entity_only, false, "only train the entity models then quit");
 DEFINE_bool(classify, false, "assume the segmentation is given");
-DEFINE_bool(train_only, false, "only do training");                        // TODO
+DEFINE_bool(train_only, false, "only do training");
 DEFINE_bool(test_only, false, "only run test");                            // TODO
 DEFINE_bool(predict_loop, false, "predict tags for each line from stdin"); // TODO
 DEFINE_bool(print_errors, false, "display errors");
@@ -85,15 +85,6 @@ DEFINE_string(resampling, "none", "which resampling method to use");
 DEFINE_uint64(nparticles, 16, "number of particles used for gazetteer filter");
 DEFINE_uint64(nmcmc_iter, 10, "number of MCMC iterations");
 DEFINE_string(mode, "smc", "smc | pgibbs");
-
-template<typename Model>
-std::unique_ptr<Model> save_model(std::unique_ptr<Model> model) {
-    std::string fn = FLAGS_model_path;
-    std::ofstream os(fn, std::ios::binary);
-    cereal::BinaryOutputArchive oarchive(os);
-    oarchive(model);
-    return model;
-}
 
 template<typename Model>
 std::unique_ptr<Model> load_model() {
@@ -176,7 +167,12 @@ std::unique_ptr<Model> train_model(const Corpus& corpus,
     LOG(INFO) << "TRAIN mean tag len: "   << alen;
     LOG(INFO) << "...done in: "           << prettyprint(toc());
     LOG(INFO) << "Serializing model to: " << FLAGS_model_path;
-    //m = save_model( std::move(m) );
+    {
+        std::string fn = FLAGS_model_path;
+        std::ofstream os(fn, std::ios::binary);
+        cereal::BinaryOutputArchive oarchive(os);
+        oarchive(m);
+    }
     LOG(INFO) << "Done.";
     return m;
 }
@@ -370,6 +366,7 @@ int main(int argc, char **argv) {
 
         if(FLAGS_train_only) {
             train_model<HSM>(corpus,train,gaz,unlabeled);
+            LOG(INFO) << "All done; exiting.";
             return 0;
         }
 
