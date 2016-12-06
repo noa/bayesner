@@ -764,6 +764,10 @@ namespace nn {
             CHECK(false) << "sanity";
         }
 
+      data_t get_corpus() const {
+        return corpus;
+      }
+
         struct writer {
             std::string prefix;
             instances test;

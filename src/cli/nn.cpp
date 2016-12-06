@@ -177,80 +177,94 @@ std::unique_ptr<Model> train_model(const Corpus& corpus,
     return m;
 }
 
+template<typename Model>
+void test_model(Model* model,
+                const instances& test,
+                std::string out_path) {
+  typedef typename Model::particle Particle;
+  typedef generic_filter<Model, Particle> Filter;
+  typename Filter::settings filter_config;
+  filter_config.num_particles = FLAGS_nparticles;
+  Filter filter(filter_config, *model);
+  LOG(INFO) << "Writing predictions on test data: " << FLAGS_test;
+  std::ofstream of(out_path);
+  size_t idx  = 0;
+  size_t ntag = 0;
+  double alen = 0;
+  double azf  = 0;
+  double aess = 0;
+  CHECK(of.is_open()) << "problem opening: " << out_path;
+  histogram<size_t> tag_hist;
+  progress_bar prog(test.size(), FLAGS_sec_status_interval);
+  tic();
+  for (const auto& i : test) {
+    auto p  = filter.sample(i.words);
+    azf    += filter.get_zero_frac();
+    aess   += filter.sys.ess;
+    auto tags = model->get_tags(p);
+    auto lens = model->get_lens(p);
+
+    for(auto len : lens) {
+      alen += static_cast<double>(len);
+      ntag += 1;
+    }
+
+    for(auto tag : tags) {
+      tag_hist.observe(tag);
+    }
+    
+    write_tagging_conll(of, i.words,
+                        tags, lens,
+                        i.tags, i.lens,
+                        model->get_corpus().get_other_key(),
+                        model->get_corpus().symtab.get_map(),
+                        model->get_corpus().tagtab.get_map());
+
+    if(idx % FLAGS_status_interval == 0) {
+      azf /= static_cast<double>(FLAGS_status_interval);
+      aess /= static_cast<double>(FLAGS_status_interval);
+      alen /= static_cast<double>(ntag);
+      ntag = 0;
+      alen = 0;
+      azf = 0;
+      aess = 0;
+    }
+    prog++;
+    idx++;
+  }
+  LOG(INFO) << "TEST tag histogram:";
+  LOG(INFO) << tag_hist.count_str();
+  LOG(INFO) << "...done in: " << prettyprint(toc());
+  of.close();
+  LOG(INFO) << "Predictions written to: " << out_path;
+}
+
 template<typename Model,
          typename Corpus = CoNLLCorpus<>
          >
-void run_inference(instances train,
-                   instances gaz,
-                   instances unlabeled,
-                   instances test,
+void run_inference(const instances& train,
+                   const instances& gaz,
+                   const instances& unlabeled,
+                   const instances& test,
                    std::string out_path,
                    const Corpus& corpus) {
     LOG(INFO) << "mode: " << FLAGS_mode;
-    LOG(INFO) << "Initializing filter...";
-    typedef typename Model::particle Particle;
-    typedef generic_filter<Model, Particle> Filter;
-    typename Filter::settings filter_config;
-    filter_config.num_particles = FLAGS_nparticles;
+    //LOG(INFO) << "Initializing filter...";
+
     if (FLAGS_mode == "smc") {
         LOG(INFO) << "Inference: SMC";
         std::unique_ptr<Model> model = train_model<Model, Corpus>(corpus,
                                                                   train,
                                                                   gaz,
                                                                   unlabeled);
-        Filter filter(filter_config, *model);
         CHECK(model->consistent()) << "inconsistent model state";
-        LOG(INFO) << "Writing predictions on test data: " << FLAGS_test;
-        std::ofstream of(out_path);
-        size_t idx  = 0;
-        size_t ntag = 0;
-        double alen = 0;
-        double azf  = 0;
-        double aess = 0;
-        CHECK(of.is_open()) << "problem opening: " << out_path;
-        histogram<size_t> tag_hist;
-        progress_bar prog(test.size(), FLAGS_sec_status_interval);
-        tic();
-        for (const auto& i : test) {
-            auto p  = filter.sample(i.words);
-            azf    += filter.get_zero_frac();
-            aess   += filter.sys.ess;
-            auto tags = model->get_tags(p);
-            auto lens = model->get_lens(p);
-            for(auto len : lens) {
-                alen += static_cast<double>(len);
-                ntag += 1;
-            }
-            for(auto tag : tags) {
-                tag_hist.observe(tag);
-            }
-            write_tagging_conll(of, i.words,
-                                tags, lens,
-                                i.tags, i.lens,
-                                corpus.get_other_key(),
-                                corpus.symtab.get_map(),
-                                corpus.tagtab.get_map());
-
-            if(idx % FLAGS_status_interval == 0) {
-                azf /= static_cast<double>(FLAGS_status_interval);
-                aess /= static_cast<double>(FLAGS_status_interval);
-                alen /= static_cast<double>(ntag);
-                ntag = 0;
-                alen = 0;
-                azf = 0;
-                aess = 0;
-            }
-            prog++;
-            idx++;
-        }
-        LOG(INFO) << "TEST tag histogram:";
-        LOG(INFO) << tag_hist.count_str();
-        LOG(INFO) << "...done in: " << prettyprint(toc());
-        of.close();
-        LOG(INFO) << "Predictions written to: " << out_path;
+        test_model<Model, Corpus>(model.get(), test, out_path);
     } else if (FLAGS_mode == "pgibbs") {
         LOG(INFO) << "Inference: particle Gibbs";
         Model model(corpus);
+        typedef typename Model::particle Particle;
+        typedef generic_filter<Model, Particle> Filter;
+        typename Filter::settings filter_config;
         typedef particle_gibbs<Particle, Filter, Model, instances> PG;
         typename PG::settings pg_config;
         auto gold_particles = model.make_particles(test);
@@ -320,6 +334,35 @@ int main(int argc, char **argv) {
 
     typedef CoNLLCorpus<> Corpus;
 
+    if (FLAGS_test_only) {
+
+
+      if (FLAGS_model == "hsm") {
+        LOG(INFO) << "Model: hidden sequence memoizer";
+        // Load serialized model
+        auto model = load_model<HSM>();
+        auto corpus = model->get_corpus();
+        // Read test data
+        LOG(INFO) << "Reading test data: " << FLAGS_test;
+        auto test = corpus.read(FLAGS_test);
+        LOG(INFO) << "Read " << test.size() << " test instances.";
+        test_model<HSM>(model.get(), test, FLAGS_out_path);
+      }
+      else if (FLAGS_model == "seg") {
+        LOG(INFO) << "Model: segmental sequence memoizer";
+        // Load serialized model
+        auto model = load_model<SSM>();
+        auto corpus = model->get_corpus();
+        // Read test data
+        LOG(INFO) << "Reading test data: " << FLAGS_test;
+        auto test = corpus.read(FLAGS_test);
+        LOG(INFO) << "Read " << test.size() << " test instances.";
+        test_model<SSM>(model.get(), test, FLAGS_out_path);
+      }
+      LOG(INFO) << "Done. Exiting...";
+      return 0;
+    }
+    
     if (!FLAGS_crossval) {
         Corpus corpus(FLAGS_bos,
                       FLAGS_eos,
@@ -365,9 +408,16 @@ int main(int argc, char **argv) {
         LOG(INFO) << nsym << " symbols in the alphabet";
 
         if(FLAGS_train_only) {
-            train_model<HSM>(corpus,train,gaz,unlabeled);
-            LOG(INFO) << "All done; exiting.";
-            return 0;
+          if(FLAGS_model == "hsm") {
+              train_model<HSM>(corpus,train,gaz,unlabeled);
+          } else if (FLAGS_model == "seg") {
+              train_model<SSM>(corpus,train,gaz,unlabeled);
+          }
+          else {
+            CHECK(false) << "unrecognized model: " << FLAGS_model;
+          }
+          LOG(INFO) << "All done; exiting.";
+          return 0;
         }
 
         // Read test data

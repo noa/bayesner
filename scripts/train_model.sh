@@ -8,16 +8,14 @@ if [ "$#" -ne 3 ]; then
 fi
 
 EXE="build/src/cli/nname"
-PRED=pred.txt
 MODE=smc
 MODEL=seg
 PROPOSAL=hybrid
 NPARTICLES=64
 NTHREAD=8
-MODEL="--mode=$MODE --model=$MODEL"
+PARAM="--mode=$MODE --model=$MODEL"
 
-CMD="$EXE --train=$1 --gazetteer=$2 --model_path=$3 --train_only $MODEL"
+CMD="$EXE --train=$1 --gazetteer=$2 --model_path=$3 --train_only $PARAM"
 echo $CMD
 
 GLOG_logtostderr=1 OMP_NUM_THREADS=$NTHREAD $CMD
-scripts/conlleval.pl < $PRED
