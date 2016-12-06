@@ -4,8 +4,7 @@ Install dependencies (minimum version):
 
 1. GCC (5)
 2. cmake (3)
-3. GSL (2.2)
-4. boost (1.6)
+3. boost (1.58)
 
 Initialize git submodules:
 
