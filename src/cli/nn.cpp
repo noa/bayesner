@@ -91,7 +91,7 @@ std::unique_ptr<Model> load_model() {
     std::string fn = FLAGS_model_path;
     std::unique_ptr<Model> model;
     {
-        std::ofstream is(fn, std::ios::binary);
+        std::ifstream is(fn, std::ios::binary);
         cereal::BinaryInputArchive iarchive(is);
         iarchive(model);
     }
