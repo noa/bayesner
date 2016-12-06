@@ -2,8 +2,8 @@
 
 set -e
 
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 TRAIN_PATH VALID_PATH GAZ_PATH"
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 VALID_PATH MODEL_PATH"
     exit
 fi
 

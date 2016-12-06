@@ -258,7 +258,7 @@ void run_inference(const instances& train,
                                                                   gaz,
                                                                   unlabeled);
         CHECK(model->consistent()) << "inconsistent model state";
-        test_model<Model, Corpus>(model.get(), test, out_path);
+        test_model<Model>(model.get(), test, out_path);
     } else if (FLAGS_mode == "pgibbs") {
         LOG(INFO) << "Inference: particle Gibbs";
         Model model(corpus);
