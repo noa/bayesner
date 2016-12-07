@@ -76,7 +76,7 @@ namespace nn {
             return key;
         }
 
-        bool has_key(V val) { return inv_symtab.count(val) > 0; }
+        bool has_key(V val) const { return inv_symtab.count(val) > 0; }
 
         K get_or_add_key(V val) {
             if ( inv_symtab.count(val) ) {

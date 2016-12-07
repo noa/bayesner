@@ -64,8 +64,8 @@ DEFINE_uint64(nthreads, 16, "number of threads");
 DEFINE_bool(entity_only, false, "only train the entity models then quit");
 DEFINE_bool(classify, false, "assume the segmentation is given");
 DEFINE_bool(train_only, false, "only do training");
-DEFINE_bool(test_only, false, "only run test");                            // TODO
-DEFINE_bool(predict_loop, false, "predict tags for each line from stdin"); // TODO
+DEFINE_bool(test_only, false, "only run test");                            
+DEFINE_bool(stdin_decoder, false, "read tokens from stdin and output tagging");
 DEFINE_bool(print_errors, false, "display errors");
 DEFINE_bool(fine_grained_context, false, "predict fine-grained context tags");
 DEFINE_uint64(status_interval, 500, "status interval (instances)");
@@ -239,6 +239,27 @@ void test_model(Model* model,
   LOG(INFO) << "Predictions written to: " << out_path;
 }
 
+template<typename Model>
+void stdin_decoder(Model* model) {
+  typedef typename Model::particle Particle;
+  typedef generic_filter<Model, Particle> Filter;
+  typename Filter::settings filter_config;
+  filter_config.num_particles = FLAGS_nparticles;
+  Filter filter(filter_config, *model);
+  auto corpus = model->get_corpus();
+  std::string line;
+  std::vector<std::string> toks;
+  std::cout << "Enter space-separated UTF8 tokens." << std::endl;
+  std::cout << "Enter X to exit." << std::endl;
+  while (std::getline(std::cin, line)) {
+    auto i = corpus.line_to_instance(line);
+    auto p  = filter.sample(i.words);
+    auto tags = model->get_tags(p);
+    auto lens = model->get_lens(p);
+    // TODO: do words start with the <bos> symbol?
+  }
+}
+
 template<typename Model,
          typename Corpus = CoNLLCorpus<>
          >
@@ -335,8 +356,6 @@ int main(int argc, char **argv) {
     typedef CoNLLCorpus<> Corpus;
 
     if (FLAGS_test_only) {
-
-
       if (FLAGS_model == "hsm") {
         LOG(INFO) << "Model: hidden sequence memoizer";
         // Load serialized model
@@ -358,6 +377,23 @@ int main(int argc, char **argv) {
         auto test = corpus.read(FLAGS_test);
         LOG(INFO) << "Read " << test.size() << " test instances.";
         test_model<SSM>(model.get(), test, FLAGS_out_path);
+      }
+      LOG(INFO) << "Done. Exiting...";
+      return 0;
+    }
+
+    if (FLAGS_stdin_decoder) {
+      if (FLAGS_model == "hsm") {
+        LOG(INFO) << "Model: hidden sequence memoizer";
+        // Load serialized model
+        auto model = load_model<HSM>();
+        stdin_decoder<HSM>(model.get());
+      }
+      else if (FLAGS_model == "seg") {
+        LOG(INFO) << "Model: segmental sequence memoizer";
+        // Load serialized model
+        auto model = load_model<SSM>();
+        stdin_decoder<SSM>(model.get());
       }
       LOG(INFO) << "Done. Exiting...";
       return 0;

@@ -168,6 +168,32 @@ namespace nn {
             return result;
         }
 
+      instance line_to_instance(std::string line) const {
+        CHECK(frozen) << "this should be used after training a model";
+        instance sentence;
+        std::vector<std::string> tokens;
+        boost::split(tokens, line, boost::is_any_of(" \t"));
+        sentence.chars.push_back(bos);
+        for (auto token : tokens) {
+          auto chars = split_utf8_word(token);
+          auto i = 0;
+          std::string word; // TODO: bos here?
+          for (auto c : chars) {
+            k_type s;
+            if(symtab.has_key(c)) {
+              s = symtab.key(c);
+            } else {
+              s = unk;
+            }
+            word.push_back(s);
+            sentence.chars.push_back(s);
+          }
+        }
+        sentence.chars.push_back(eos);
+        sentence.words.push_back(get_eos_obs());
+        return sentence;
+      }
+
         std::tuple<instances, instances>
         read(std::string path,
              std::set<size_t> train_idx,
