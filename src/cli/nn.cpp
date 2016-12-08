@@ -252,11 +252,12 @@ void stdin_decoder(Model* model) {
   std::cout << "Enter space-separated UTF8 tokens." << std::endl;
   std::cout << "Enter X to exit." << std::endl;
   while (std::getline(std::cin, line)) {
+    std::cout << "input: " << line << std::endl;
     auto i = corpus.line_to_instance(line);
     auto p  = filter.sample(i.words);
     auto tags = model->get_tags(p);
     auto lens = model->get_lens(p);
-    // TODO: do words start with the <bos> symbol?
+    std::cout << corpus.get_tagging_string(tags, lens) << std::endl;
   }
 }
 
@@ -411,6 +412,14 @@ int main(int argc, char **argv) {
         auto train = corpus.read(FLAGS_train);
         LOG(INFO) << "Read " << train.size() << " training instances.";
 
+        // Print some examples:
+        for(auto i=0; i<2; ++i) {
+          LOG(INFO) << "Train instance " << i << ":";
+          LOG(INFO) << corpus.get_instance_chars_string(train[i]);
+          LOG(INFO) << corpus.get_instance_words_string(train[i]);
+        }
+        
+        
         // Read gazetteer
         instances gaz;
         if (FLAGS_gazetteer != "") {

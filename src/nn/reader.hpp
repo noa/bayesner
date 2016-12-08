@@ -22,6 +22,7 @@
 #include <iomanip>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/join.hpp>
 
 #include <nn/log.hpp>
 #include <nn/utf8.hpp>
@@ -113,31 +114,31 @@ namespace nn {
                      unk_tag);
         }
 
-        CoNLLCorpus() {}
-        CoNLLCorpus(s_type _bos,   // end of sequence
-                    s_type _eos,   // beginning of sequence
-                    s_type _space, // space input symbol
-                    s_type _unk,   // distinguished unknown sym (sentinel value)
-                    t_type _other  // other tag
-            ) {
-            bos       = symtab.add_key(_bos);
-            eos       = symtab.add_key(_eos);
-            space     = symtab.add_key(_space);
-            unk       = symtab.add_key(_unk);
-            other_tag = tagtab.add_key(_other);
-        }
-
-        const s_type& get_bos_val()   const { return symtab.val(bos);       }
-        const s_type& get_eos_val()   const { return symtab.val(eos);       }
-        const s_type& get_space_val() const { return symtab.val(space);     }
-        const s_type& get_unk_val()   const { return symtab.val(unk);       }
-        const t_type& get_other_val() const { return tagtab.val(other_tag); }
-
-        k_type get_bos_key()   const { return bos;       }
-        k_type get_eos_key()   const { return eos;       }
-        k_type get_space_key() const { return space;     }
-        k_type get_unk_key()   const { return unk;       }
-        k_type get_other_key() const { return other_tag; }
+      CoNLLCorpus() {}
+      CoNLLCorpus(s_type _bos,   // beginning of sequence
+                  s_type _eos,   // end of sequence
+                  s_type _space, // space input symbol
+                  s_type _unk,   // distinguished unknown sym (sentinel value)
+                  t_type _other  // other tag
+                  ) {
+        bos       = symtab.add_key(_bos);
+        eos       = symtab.add_key(_eos);
+        space     = symtab.add_key(_space);
+        unk       = symtab.add_key(_unk);
+        other_tag = tagtab.add_key(_other);
+      }
+      
+      const s_type& get_bos_val()   const { return symtab.val(bos);       }
+      const s_type& get_eos_val()   const { return symtab.val(eos);       }
+      const s_type& get_space_val() const { return symtab.val(space);     }
+      const s_type& get_unk_val()   const { return symtab.val(unk);       }
+      const t_type& get_other_val() const { return tagtab.val(other_tag); }
+      
+      k_type get_bos_key()   const { return bos;       }
+      k_type get_eos_key()   const { return eos;       }
+      k_type get_space_key() const { return space;     }
+      k_type get_unk_key()   const { return unk;       }
+      k_type get_other_key() const { return other_tag; }
 
         syms get_eos_obs() const {
             syms EOS { 0, eos, 0 };
@@ -168,6 +169,27 @@ namespace nn {
             return result;
         }
 
+      std::string get_tagging_string(std::vector<size_t> tags,
+                                     std::vector<size_t> lens) const {
+        std::vector<std::string> tagging;
+        for(auto i=0; i<tags.size(); ++i) {
+          auto tag = tags.at(i);
+          auto len = lens.at(i);
+          for(auto j=0; j<len; ++j) {
+            if(j==0) {
+              if(tag == other_tag) {
+                tagging.push_back(tagtab.val(tag));
+              } else {
+                tagging.push_back("B-"+tagtab.val(tag));
+              }
+            } else {
+              tagging.push_back("I-"+tagtab.val(tag));
+            }
+          }
+        }
+        return boost::algorithm::join(tagging, " ");
+      }
+      
       instance line_to_instance(std::string line) const {
         CHECK(frozen) << "this should be used after training a model";
         instance sentence;
@@ -177,7 +199,7 @@ namespace nn {
         for (auto token : tokens) {
           auto chars = split_utf8_word(token);
           auto i = 0;
-          std::string word; // TODO: bos here?
+          std::vector<size_t> word {bos};
           for (auto c : chars) {
             k_type s;
             if(symtab.has_key(c)) {
@@ -188,6 +210,9 @@ namespace nn {
             word.push_back(s);
             sentence.chars.push_back(s);
           }
+          word.push_back(eos);
+          sentence.chars.push_back(space);
+          sentence.words.push_back(word);
         }
         sentence.chars.push_back(eos);
         sentence.words.push_back(get_eos_obs());
@@ -209,6 +234,26 @@ namespace nn {
             return ret;
         }
 
+      std::string decode(std::vector<size_t> word) const {
+        std::string ret;
+        for(auto it = word.begin(); it != word.end(); ++it) {
+          ret = ret + symtab.val(*it);
+        }
+        return ret;
+      }
+
+      std::string get_instance_chars_string(instance i) const {
+        return decode(i.chars);
+      }
+
+      std::string get_instance_words_string(instance i) const {
+        std::string ret;
+        for(auto it = i.words.begin(); it != i.words.end(); ++it) {
+          ret = ret + " " + decode(*it);
+        }
+        return ret;
+      }
+      
         std::vector<instance>
         read(std::string path,
              std::set<size_t> include = std::set<size_t>()) {
@@ -327,7 +372,7 @@ namespace nn {
                         sentence.tags.push_back( tagtab.get_or_add_key(tag) );
                     }
 
-                    std::vector<k_type> w { bos };
+                    std::vector<k_type> w { bos }; // start every word seq with <bos>
                     sentence.words.push_back( w );
 
                     // current word and its length
