@@ -249,10 +249,10 @@ void stdin_decoder(Model* model) {
   auto corpus = model->get_corpus();
   std::string line;
   std::vector<std::string> toks;
-  std::cout << "Enter space-separated UTF8 tokens." << std::endl;
-  std::cout << "Enter X to exit." << std::endl;
+  //std::cout << "Enter space-separated UTF8 tokens." << std::endl;
+  //std::cout << "Enter X to exit." << std::endl;
   while (std::getline(std::cin, line)) {
-    std::cout << "input: " << line << std::endl;
+    //std::cout << "input: " << line << std::endl;
     auto i = corpus.line_to_instance(line);
     auto p  = filter.sample(i.words);
     auto tags = model->get_tags(p);
