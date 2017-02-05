@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 
 # Project name
 project(nicknames)
@@ -24,21 +24,41 @@ endif()
 # Custom modules
 set (CMAKE_MODULE_PATH "${parser_SOURCE_DIR}/cmake")
 
-SET(Boost_USE_STATIC_LIBS ON)
-find_package(Boost 1.58.0 COMPONENTS
-  log
-  thread
-  iostreams
-  serialization
-  date_time
-  system
-  timer
-  filesystem
-  REQUIRED)
-
 # Thread support
-find_package( OpenMP  REQUIRED )
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package( Threads REQUIRED )
+find_package( OpenMP  REQUIRED )
+
+IF(Threads_FOUND)
+  INCLUDE_DIRECTORIES(${Threads_INCLUDE_DIR})
+  MESSAGE("Are we using pthreads? ${CMAKE_USE_PTHREADS_INIT}")
+ENDIF()
+
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_MULTITHREADED ON)
+find_package(Boost 1.58.0 REQUIRED COMPONENTS
+  system
+  thread
+  filesystem
+  date_time
+  iostreams
+  log
+  log_setup
+  serialization
+  timer)
+
+# Set boost link targets
+set(Boost_TARGETS
+  "Boost::boost"
+  "Boost::timer"
+  "Boost::iostreams"
+  "Boost::serialization"
+  "Boost::date_time"
+  "Boost::system"
+  "Boost::log"
+  "Boost::log_setup"
+  "Boost::thread")
 
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -55,9 +75,6 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
   ${GFLAGS_INCLUDE_DIR}
   )
-
-# Set link directories
-link_directories(${Boost_LIBRARY_DIRS})
 
 # Set subdirectories
 include_directories(src)
