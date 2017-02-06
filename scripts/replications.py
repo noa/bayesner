@@ -6,17 +6,16 @@ import numpy as np
 import progressbar # pip install progressbar2
 import statistics as stat
 import numpy as np, scipy.stats as st
+import os
+import pickle
 import nltk
+from functools import partial
 from conll import ConllNECorpusReader
-
-# Temporary output files
-TMP_VALID = 'replications_valid.tab'
-TMP_TRAIN = 'replications_train.tab'
-TMP_GAZ   = 'replications_gaz.tab'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('trainFile')
 parser.add_argument('validFile')
+parser.add_argument('exptDir')
 parser.add_argument('--nTrain', type=int, default=100)
 parser.add_argument('--nValid', type=int, default=250)
 parser.add_argument('--nGaz', type=int, default=50)
@@ -33,6 +32,31 @@ parser.add_argument('--deltaOutPath', default='delta.dat')
 parser.add_argument('--repeatGaz', default=False, action='store_true')
 args = parser.parse_args()
 
+# Temporary output files
+TMP_VALID = os.path.join(args.exptDir, 'replications_valid.tab')
+TMP_TRAIN = os.path.join(args.exptDir, 'replications_train.tab')
+TMP_GAZ   = os.path.join(args.exptDir, 'replications_gaz.tab')
+
+# Results dict (CMD -> result), written with transactions
+KEYVAL_PATH=os.path.join(args.exptDir, "RESULTS.pickle")
+KEYVAL = dict()
+
+def _read_dict():
+    with open(KEYVAL_PATH, 'rb') as f:
+        return pickle.load(f)
+
+def _persist():
+    with open(KEYVAL_PATH, 'wb') as f:
+        pickle.dump(KEYVAL, f)
+
+# Prepare experiment directory
+if not os.path.isdir(args.exptDir):
+    print("creating new experiment directory: {}".format(args.exptDir))
+    os.mkdir(args.exptDir)
+else:
+    KEYVAL = _read_dict()
+    print("{} existing experiment results in KEYVAL store".format(len(KEYVAL)))
+
 # Set random seed
 np.random.seed(args.seed)
 
@@ -43,6 +67,7 @@ BASELINE_PATH = 'stanford-ner-2015-12-09'
 BASELINE_FEATURES = '{}/features.prop'.format(BASELINE_PATH)
 BASELINE_MODEL = 'crf.model'
 BASELINE_CLASSPATH = '"{}/stanford-ner.jar:{}/lib/*"'.format(BASELINE_PATH, BASELINE_PATH)
+BASELINE_ARGS = '-useQN false -l1reg 0.5'
 BASELINE_CMD = 'java -server -cp {} -d64 -Xmx10g edu.stanford.nlp.ie.crf.CRFClassifier'.format(BASELINE_CLASSPATH)
 
 MODEL_CMD = 'bash scripts/run_expt_smc.sh'
@@ -54,17 +79,31 @@ def BASELINE_VALID(validFile):
     return '{} -loadClassifier {} -testFile {}'.format(BASELINE_CMD, BASELINE_MODEL, validFile)
 
 def baseline_f1(proc):
-    err = proc.stderr.decode('ascii')
-    for line in err.split("\n"):
+    err = proc.stderr.decode('utf-8')
+    for line in err.split('\n'):
         if line.lstrip().startswith("Totals"):
             return float(line.split()[3])*100.0
+
+    # If that didn't work, maybe no NE predictions were made.
     return 0.0
+    # out = proc.stdout.decode('utf-8')
+    # with open('out.txt','w') as f:
+    #     for line in out.split('\n'):
+    #         tokens = line.split()
+    #         if len(tokens) == 3:
+    #             f.write("{} {}\n".format(tokens[1], tokens[2]))
+
+    # raise Exception("debug")
+
+    # print("error parsing baseline model output (F1)")
+    # return None
 
 def model_f1(proc):
-    out = proc.stdout.decode('ascii')
+    out = proc.stdout.decode('utf-8')
     for line in out.split("\n"):
         if line.lstrip().startswith("accuracy"):
             return float(line.split()[7])
+    raise Exception("error parsing model output (F1)")
 
 def run(cmd, capture=False):
     proc = subprocess.run(cmd,
@@ -146,14 +185,20 @@ def convertGaz(inPath, outPath):
 def baseline_run_expt(trainPath, validPath, gazPath):
     newGazPath = gazPath+'.tmp'
     convertGaz(gazPath, newGazPath)
-    run( BASELINE_TRAIN(trainPath, newGazPath) )
-    p = run( BASELINE_VALID(validPath) )
-    return baseline_f1(p)
+    train_cmd = BASELINE_TRAIN(trainPath, newGazPath)
+    #print(train_cmd)
+    run( train_cmd )
+    valid_cmd = BASELINE_VALID(validPath)
+    #print(valid_cmd)
+    p = run( valid_cmd )
+    ret = baseline_f1(p)
+    return ret
 
 def model_run_expt(trainPath, validPath, gazPath):
     cmd = '{} {} {} {}'.format(MODEL_CMD, trainPath, validPath, gazPath)
     p = run( cmd )
-    return model_f1(p)
+    ret = model_f1(p)
+    return ret
 
 # Read instances from CoNLL file
 def readConll(path):
@@ -206,6 +251,17 @@ for i in range(len(foldStarts)):
     model_scores.append([])
     baseline_scores.append([])
 
+# Fetch or run expt
+def fetch_or_run(key, func):
+    if not (key in KEYVAL):
+        val = func()
+        while val == None:
+            print('nil return; retrying...')
+            val = func()
+        KEYVAL[key]=val
+        _persist()
+    return KEYVAL[key]
+
 # Perform replications
 startIndex = 0
 with progressbar.ProgressBar(max_value=nExpts) as bar:
@@ -235,23 +291,34 @@ with progressbar.ProgressBar(max_value=nExpts) as bar:
 #            incrs += [ len(fold) ]
             write_instances(TMP_TRAIN, fold)
             if args.baseline or args.delta:
-                baseline_scores[j] += [ baseline_run_expt(TMP_TRAIN, TMP_VALID, TMP_GAZ) ]
-            model_scores[j]    += [ model_run_expt(TMP_TRAIN, TMP_VALID, TMP_GAZ) ]
+                baseline_scores[j] += [
+                    fetch_or_run(
+                        "baseline_{}_{}".format(fold, r),
+                        partial(baseline_run_expt, TMP_TRAIN, TMP_VALID, TMP_GAZ)
+                    )]
+            model_scores[j] += [
+                fetch_or_run(
+                    "model_{}_{}".format(fold, r),
+                    partial(model_run_expt, TMP_TRAIN, TMP_VALID, TMP_GAZ)
+                )]
             bar.update(i)
             j += 1
             i += 1
 
-# Write discriminative results
-if args.baseline:
-    with open(args.baselineOutPath, 'w') as out:
+# Write baseline results
+if args.baseline or args.delta:
+    PATH=os.path.join(args.exptDir, args.baselineOutPath)
+    print('Writing discriminative results: {}'.format(PATH))
+    with open(PATH, 'w') as out:
         for j in range(len(foldStarts)):
             s = [ str(incrs[j]) ] + [ str(x) for x in baseline_scores[j] ]
             out.write(" ".join(s)+"\n")
 
-
 # Write delta results
 if args.delta:
-    with open(args.deltaOutPath, 'w') as out:
+    PATH=os.path.join(args.exptDir, args.deltaOutPath)
+    print('Writing delta results: {}'.format(PATH))
+    with open(PATH, 'w') as out:
         for j in range(len(foldStarts)):
             s = [ str(incrs[j]) ]
             for i in range(len(baseline_scores[j])):
@@ -259,7 +326,9 @@ if args.delta:
             out.write(" ".join(s)+"\n")
 
 # Write model results
-with open(args.modelOutPath, 'w') as out:
+PATH=os.path.join(args.exptDir, args.modelOutPath)
+with open(PATH, 'w') as out:
+    print('Writing model results: {}'.format(PATH))
     for j in range(len(foldStarts)):
         s = [ str(incrs[j]) ] + [ str(x) for x in model_scores[j] ]
         out.write(" ".join(s)+"\n")
