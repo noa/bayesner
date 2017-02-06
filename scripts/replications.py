@@ -11,11 +11,13 @@ import pickle
 import nltk
 from functools import partial
 from conll import ConllNECorpusReader
+import configparser
 
 parser = argparse.ArgumentParser()
 parser.add_argument('trainFile')
 parser.add_argument('validFile')
 parser.add_argument('exptDir')
+parser.add_argument('--modelConfig')
 parser.add_argument('--nTrain', type=int, default=100)
 parser.add_argument('--nValid', type=int, default=250)
 parser.add_argument('--nGaz', type=int, default=50)
@@ -31,6 +33,13 @@ parser.add_argument('--modelOutPath', default='model.dat')
 parser.add_argument('--deltaOutPath', default='delta.dat')
 parser.add_argument('--repeatGaz', default=False, action='store_true')
 args = parser.parse_args()
+
+# Load model config
+config = configparser.ConfigParser()
+model_nParticles = 128
+if args.modelConfig:
+    config.read(args.modelConfig)
+    model_nParticles = int(config['model']['nparticles'])
 
 # Temporary output files
 TMP_VALID = os.path.join(args.exptDir, 'replications_valid.tab')
@@ -70,7 +79,8 @@ BASELINE_CLASSPATH = '"{}/stanford-ner.jar:{}/lib/*"'.format(BASELINE_PATH, BASE
 BASELINE_ARGS = '-useQN false -l1reg 0.5'
 BASELINE_CMD = 'java -server -cp {} -d64 -Xmx10g edu.stanford.nlp.ie.crf.CRFClassifier'.format(BASELINE_CLASSPATH)
 
-MODEL_CMD = 'bash scripts/run_expt_smc.sh'
+MODEL_CMD     = 'bash scripts/run_expt_smc.sh'
+MODEL_CFG_CMD = 'bash scripts/run_expt_smc_cfg.sh'
 
 def BASELINE_TRAIN(trainFile, gazFile):
     return '{} -prop {} -serializeTo {} -trainFile {} -useGazettes=true -gazette {}'.format(BASELINE_CMD, BASELINE_FEATURES, BASELINE_MODEL, trainFile, gazFile)
@@ -83,20 +93,8 @@ def baseline_f1(proc):
     for line in err.split('\n'):
         if line.lstrip().startswith("Totals"):
             return float(line.split()[3])*100.0
-
-    # If that didn't work, maybe no NE predictions were made.
+    # If that didn't work, no NE predictions so 0.0 F1.
     return 0.0
-    # out = proc.stdout.decode('utf-8')
-    # with open('out.txt','w') as f:
-    #     for line in out.split('\n'):
-    #         tokens = line.split()
-    #         if len(tokens) == 3:
-    #             f.write("{} {}\n".format(tokens[1], tokens[2]))
-
-    # raise Exception("debug")
-
-    # print("error parsing baseline model output (F1)")
-    # return None
 
 def model_f1(proc):
     out = proc.stdout.decode('utf-8')
@@ -200,6 +198,12 @@ def model_run_expt(trainPath, validPath, gazPath):
     ret = model_f1(p)
     return ret
 
+def model_run_expt_cfg(trainPath, validPath, gazPath, nParticles):
+    cmd = '{} {} {} {} {}'.format(MODEL_CFG_CMD, trainPath, validPath, gazPath, nParticles)
+    p = run( cmd )
+    ret = model_f1(p)
+    return ret
+
 # Read instances from CoNLL file
 def readConll(path):
     instance = []
@@ -299,7 +303,7 @@ with progressbar.ProgressBar(max_value=nExpts) as bar:
             model_scores[j] += [
                 fetch_or_run(
                     "model_{}_{}".format(fold, r),
-                    partial(model_run_expt, TMP_TRAIN, TMP_VALID, TMP_GAZ)
+                    partial(model_run_expt_cfg, TMP_TRAIN, TMP_VALID, TMP_GAZ, model_nParticles)
                 )]
             bar.update(i)
             j += 1
