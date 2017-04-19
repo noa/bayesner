@@ -39,7 +39,6 @@
 #include <nn/adapted_seq_model.hpp>
 #include <nn/hidden_sequence_memoizer.hpp>
 #include <nn/segmental_sequence_memoizer.hpp>
-//#include <nn/latent_segmental_pyp_lm.hpp>
 
 #include <cereal/types/memory.hpp>
 #include <cereal/archives/binary.hpp>
@@ -64,7 +63,7 @@ DEFINE_uint64(nthreads, 16, "number of threads");
 DEFINE_bool(entity_only, false, "only train the entity models then quit");
 DEFINE_bool(classify, false, "assume the segmentation is given");
 DEFINE_bool(train_only, false, "only do training");
-DEFINE_bool(test_only, false, "only run test");                            
+DEFINE_bool(test_only, false, "only run test");
 DEFINE_bool(stdin_decoder, false, "read tokens from stdin and output tagging");
 DEFINE_bool(print_errors, false, "display errors");
 DEFINE_bool(fine_grained_context, false, "predict fine-grained context tags");
@@ -181,84 +180,81 @@ template<typename Model>
 void test_model(Model* model,
                 const instances& test,
                 std::string out_path) {
-  typedef typename Model::particle Particle;
-  typedef generic_filter<Model, Particle> Filter;
-  typename Filter::settings filter_config;
-  filter_config.num_particles = FLAGS_nparticles;
-  Filter filter(filter_config, *model);
-  LOG(INFO) << "Writing predictions on test data: " << FLAGS_test;
-  std::ofstream of(out_path);
-  size_t idx  = 0;
-  size_t ntag = 0;
-  double alen = 0;
-  double azf  = 0;
-  double aess = 0;
-  CHECK(of.is_open()) << "problem opening: " << out_path;
-  histogram<size_t> tag_hist;
-  progress_bar prog(test.size(), FLAGS_sec_status_interval);
-  tic();
-  for (const auto& i : test) {
-    auto p  = filter.sample(i.words);
-    azf    += filter.get_zero_frac();
-    aess   += filter.sys.ess;
-    auto tags = model->get_tags(p);
-    auto lens = model->get_lens(p);
+    typedef typename Model::particle Particle;
+    typedef generic_filter<Model, Particle> Filter;
+    typename Filter::settings filter_config;
+    filter_config.num_particles = FLAGS_nparticles;
+    Filter filter(filter_config, *model);
+    LOG(INFO) << "Writing predictions on test data: " << FLAGS_test;
+    std::ofstream of(out_path);
+    size_t idx  = 0;
+    size_t ntag = 0;
+    double alen = 0;
+    double azf  = 0;
+    double aess = 0;
+    CHECK(of.is_open()) << "problem opening: " << out_path;
+    histogram<size_t> tag_hist;
+    progress_bar prog(test.size(), FLAGS_sec_status_interval);
+    tic();
+    for (const auto& i : test) {
+        auto p  = filter.sample(i.words);
+        azf    += filter.get_zero_frac();
+        aess   += filter.sys.ess;
+        auto tags = model->get_tags(p);
+        auto lens = model->get_lens(p);
 
-    for(auto len : lens) {
-      alen += static_cast<double>(len);
-      ntag += 1;
-    }
+        for(auto len : lens) {
+            alen += static_cast<double>(len);
+            ntag += 1;
+        }
 
-    for(auto tag : tags) {
-      tag_hist.observe(tag);
-    }
-    
-    write_tagging_conll(of, i.words,
-                        tags, lens,
-                        i.tags, i.lens,
-                        model->get_corpus().get_other_key(),
-                        model->get_corpus().symtab.get_map(),
-                        model->get_corpus().tagtab.get_map());
+        for(auto tag : tags) {
+            tag_hist.observe(tag);
+        }
 
-    if(idx % FLAGS_status_interval == 0) {
-      azf /= static_cast<double>(FLAGS_status_interval);
-      aess /= static_cast<double>(FLAGS_status_interval);
-      alen /= static_cast<double>(ntag);
-      ntag = 0;
-      alen = 0;
-      azf = 0;
-      aess = 0;
+        write_tagging_conll(of, i.words,
+                            tags, lens,
+                            i.tags, i.lens,
+                            model->get_corpus().get_other_key(),
+                            model->get_corpus().symtab.get_map(),
+                            model->get_corpus().tagtab.get_map());
+
+        if(idx % FLAGS_status_interval == 0) {
+            azf /= static_cast<double>(FLAGS_status_interval);
+            aess /= static_cast<double>(FLAGS_status_interval);
+            alen /= static_cast<double>(ntag);
+            ntag = 0;
+            alen = 0;
+            azf = 0;
+            aess = 0;
+        }
+        prog++;
+        idx++;
     }
-    prog++;
-    idx++;
-  }
-  LOG(INFO) << "TEST tag histogram:";
-  LOG(INFO) << tag_hist.count_str();
-  LOG(INFO) << "...done in: " << prettyprint(toc());
-  of.close();
-  LOG(INFO) << "Predictions written to: " << out_path;
+    LOG(INFO) << "TEST tag histogram:";
+    LOG(INFO) << tag_hist.count_str();
+    LOG(INFO) << "...done in: " << prettyprint(toc());
+    of.close();
+    LOG(INFO) << "Predictions written to: " << out_path;
 }
 
 template<typename Model>
 void stdin_decoder(Model* model) {
-  typedef typename Model::particle Particle;
-  typedef generic_filter<Model, Particle> Filter;
-  typename Filter::settings filter_config;
-  filter_config.num_particles = FLAGS_nparticles;
-  Filter filter(filter_config, *model);
-  auto corpus = model->get_corpus();
-  std::string line;
-  std::vector<std::string> toks;
-  //std::cout << "Enter space-separated UTF8 tokens." << std::endl;
-  //std::cout << "Enter X to exit." << std::endl;
-  while (std::getline(std::cin, line)) {
-    //std::cout << "input: " << line << std::endl;
-    auto i = corpus.line_to_instance(line);
-    auto p  = filter.sample(i.words);
-    auto tags = model->get_tags(p);
-    auto lens = model->get_lens(p);
-    std::cout << corpus.get_tagging_string(tags, lens) << std::endl;
-  }
+    typedef typename Model::particle Particle;
+    typedef generic_filter<Model, Particle> Filter;
+    typename Filter::settings filter_config;
+    filter_config.num_particles = FLAGS_nparticles;
+    Filter filter(filter_config, *model);
+    auto corpus = model->get_corpus();
+    std::string line;
+    std::vector<std::string> toks;
+    while (std::getline(std::cin, line)) {
+        auto i = corpus.line_to_instance(line);
+        auto p  = filter.sample(i.words);
+        auto tags = model->get_tags(p);
+        auto lens = model->get_lens(p);
+        std::cout << corpus.get_tagging_string(tags, lens) << std::endl;
+    }
 }
 
 template<typename Model,
@@ -271,7 +267,6 @@ void run_inference(const instances& train,
                    std::string out_path,
                    const Corpus& corpus) {
     LOG(INFO) << "mode: " << FLAGS_mode;
-    //LOG(INFO) << "Initializing filter...";
 
     if (FLAGS_mode == "smc") {
         LOG(INFO) << "Inference: SMC";
@@ -373,6 +368,7 @@ int main(int argc, char **argv) {
         // Load serialized model
         auto model = load_model<SSM>();
         auto corpus = model->get_corpus();
+
         // Read test data
         LOG(INFO) << "Reading test data: " << FLAGS_test;
         auto test = corpus.read(FLAGS_test);
@@ -399,7 +395,7 @@ int main(int argc, char **argv) {
       LOG(INFO) << "Done. Exiting...";
       return 0;
     }
-    
+
     if (!FLAGS_crossval) {
         Corpus corpus(FLAGS_bos,
                       FLAGS_eos,
@@ -418,8 +414,7 @@ int main(int argc, char **argv) {
           LOG(INFO) << corpus.get_instance_chars_string(train[i]);
           LOG(INFO) << corpus.get_instance_words_string(train[i]);
         }
-        
-        
+
         // Read gazetteer
         instances gaz;
         if (FLAGS_gazetteer != "") {
@@ -472,16 +467,14 @@ int main(int argc, char **argv) {
 
         if (FLAGS_model == "hsm") {
             LOG(INFO) << "Model: hidden sequence memoizer";
-            run_inference<HSM>(train, gaz, unlabeled, test, FLAGS_out_path, corpus);
+            run_inference<HSM>(train, gaz, unlabeled, test, FLAGS_out_path,
+                               corpus);
         }
         else if (FLAGS_model == "seg") {
             LOG(INFO) << "Model: segmental sequence memoizer";
-            run_inference<SSM>(train, gaz, unlabeled, test, FLAGS_out_path, corpus);
+            run_inference<SSM>(train, gaz, unlabeled, test, FLAGS_out_path,
+                               corpus);
         }
-        // else if (FLAGS_model == "slm") {
-        //     LOG(INFO) << "Model: segmental PYP language model";
-        //     run_inference<SLM>(train, gaz, unlabeled, test, FLAGS_out_path, corpus);
-        // }
         else {
             CHECK(false) << "unrecognized model: " << FLAGS_model;
         }
@@ -575,10 +568,6 @@ int main(int argc, char **argv) {
                 LOG(INFO) << "Model: segmental sequence memoizer";
                 run_inference<SSM>(train, gaz, unlabeled, test, output_path, corpus);
             }
-            // else if (FLAGS_model == "slm") {
-            //     LOG(INFO) << "Model: segmental PYP language model";
-            //     run_inference<SLM>(train, gaz, unlabeled, test, output_path, corpus);
-            // }
             else {
                 CHECK(false) << "unrecognized model: " << FLAGS_model;
             }

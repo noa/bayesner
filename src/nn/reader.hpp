@@ -20,6 +20,7 @@
 #define __NN_READER_HPP__
 
 #include <iomanip>
+#include <system_error>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -127,13 +128,13 @@ namespace nn {
         unk       = symtab.add_key(_unk);
         other_tag = tagtab.add_key(_other);
       }
-      
+
       const s_type& get_bos_val()   const { return symtab.val(bos);       }
       const s_type& get_eos_val()   const { return symtab.val(eos);       }
       const s_type& get_space_val() const { return symtab.val(space);     }
       const s_type& get_unk_val()   const { return symtab.val(unk);       }
       const t_type& get_other_val() const { return tagtab.val(other_tag); }
-      
+
       k_type get_bos_key()   const { return bos;       }
       k_type get_eos_key()   const { return eos;       }
       k_type get_space_key() const { return space;     }
@@ -154,7 +155,8 @@ namespace nn {
             std::ifstream infile;
             infile.open(path);
             if(!infile) {
-                LOG(FATAL) << "Error reading: [" << path << "]";
+                LOG(FATAL) << "Error reading: `" << path << "'";
+                throw std::system_error(EIO, std::generic_category());
             }
             size_t result = 0;
             std::string line;
@@ -189,7 +191,7 @@ namespace nn {
         }
         return boost::algorithm::join(tagging, " ");
       }
-      
+
       instance line_to_instance(std::string line) const {
         CHECK(frozen) << "this should be used after training a model";
         instance sentence;
@@ -253,7 +255,7 @@ namespace nn {
         }
         return ret;
       }
-      
+
         std::vector<instance>
         read(std::string path,
              std::set<size_t> include = std::set<size_t>()) {
@@ -267,7 +269,8 @@ namespace nn {
 
             infile.open(path);
             if(!infile) {
-                LOG(FATAL) << "Error reading: [" << path << "]";
+                LOG(FATAL) << "Error reading path: `" << path << "'";
+                throw std::system_error(EIO, std::generic_category());
             }
 
             std::set<size_t> unique_syms;

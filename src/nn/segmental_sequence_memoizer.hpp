@@ -498,7 +498,8 @@ namespace nn {
             T->observe(context, eos_tag);
         }
 
-        void update_context(size_t tag, const syms& word, phrase& context) const {
+        void update_context(size_t tag, const syms& word,
+                            phrase& context) const {
             if (tag == context_tag) {
                 context.push_back( word );
             } else {
