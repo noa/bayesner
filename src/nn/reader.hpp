@@ -21,7 +21,9 @@
 
 #include <iomanip>
 #include <system_error>
+#include <cctype>
 
+#include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 
@@ -33,6 +35,23 @@
 #include <cereal/types/string.hpp>
 
 namespace nn {
+
+    bool slow_is_number(std::string s) {
+        std::replace( s.begin(), s.end(), ',', '.');
+        bool is_a_number = false;
+        try {
+            boost::lexical_cast<double>(s);
+            is_a_number = true;
+        }
+        catch(boost::bad_lexical_cast &) {
+            // if it throws, it's not a number.
+        }
+        return is_a_number;
+    }
+
+    bool is_number(const std::string &s) {
+        return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
+    }
 
     std::vector<std::string> &split(const std::string &s,
                                     char delim,
@@ -91,6 +110,20 @@ namespace nn {
         mutable_symbol_table<k_type,s_type> symtab;
         mutable_symbol_table<k_type,t_type> tagtab;
 
+        // This maps from encoded observations to their representation
+        // in the context representation in a sentence. This map is
+        // created once while the data is loaded and then never
+        // modified.
+        // mutable_symbol_table<k_type, std::vector<k_type> > context_map;
+        std::unordered_map<std::vector<size_t>, size_t> context_map;
+        std::unordered_map<size_t, std::vector<size_t> > context_tag_keys;
+
+        // Unique words appearing in the data; this is used to
+        // represent the context during inference. We normalize things
+        // like numbers to distinguished values, and uppercase
+        // everything.
+        mutable_symbol_table<k_type, s_type> vocab;
+
         k_type bos;
         k_type eos;
         k_type space;
@@ -112,34 +145,34 @@ namespace nn {
                      unk,
                      other_tag,
                      frozen,
-                     unk_tag);
+                     unk_tag );
         }
 
-      CoNLLCorpus() {}
-      CoNLLCorpus(s_type _bos,   // beginning of sequence
-                  s_type _eos,   // end of sequence
-                  s_type _space, // space input symbol
-                  s_type _unk,   // distinguished unknown sym (sentinel value)
-                  t_type _other  // other tag
-                  ) {
-        bos       = symtab.add_key(_bos);
-        eos       = symtab.add_key(_eos);
-        space     = symtab.add_key(_space);
-        unk       = symtab.add_key(_unk);
-        other_tag = tagtab.add_key(_other);
-      }
+        CoNLLCorpus() {}
+        CoNLLCorpus(s_type _bos,   // beginning of sequence
+                    s_type _eos,   // end of sequence
+                    s_type _space, // space input symbol
+                    s_type _unk,   // distinguished unknown sym (sentinel value)
+                    t_type _other  // other tag
+            ) {
+            bos       = symtab.add_key(_bos);
+            eos       = symtab.add_key(_eos);
+            space     = symtab.add_key(_space);
+            unk       = symtab.add_key(_unk);
+            other_tag = tagtab.add_key(_other);
+        }
 
-      const s_type& get_bos_val()   const { return symtab.val(bos);       }
-      const s_type& get_eos_val()   const { return symtab.val(eos);       }
-      const s_type& get_space_val() const { return symtab.val(space);     }
-      const s_type& get_unk_val()   const { return symtab.val(unk);       }
-      const t_type& get_other_val() const { return tagtab.val(other_tag); }
+        const s_type& get_bos_val()   const { return symtab.val(bos);       }
+        const s_type& get_eos_val()   const { return symtab.val(eos);       }
+        const s_type& get_space_val() const { return symtab.val(space);     }
+        const s_type& get_unk_val()   const { return symtab.val(unk);       }
+        const t_type& get_other_val() const { return tagtab.val(other_tag); }
 
-      k_type get_bos_key()   const { return bos;       }
-      k_type get_eos_key()   const { return eos;       }
-      k_type get_space_key() const { return space;     }
-      k_type get_unk_key()   const { return unk;       }
-      k_type get_other_key() const { return other_tag; }
+        k_type get_bos_key()          const { return bos;                   }
+        k_type get_eos_key()          const { return eos;                   }
+        k_type get_space_key()        const { return space;                 }
+        k_type get_unk_key()          const { return unk;                   }
+        k_type get_other_key()        const { return other_tag;             }
 
         syms get_eos_obs() const {
             syms EOS { 0, eos, 0 };
@@ -149,6 +182,33 @@ namespace nn {
         syms get_bos_obs() const {
             syms BOS { 0, bos, 0 };
             return BOS;
+        }
+
+        size_t get_bos_context_key() const {
+            get_word_context_code( get_bos_obs() );
+        }
+
+        // This is just used while initializing the
+        std::string get_tag_context_string(size_t tag) const {
+            if (tag == other_tag) {
+                throw std::logic_error("called on context tag");
+            }
+            auto tagstr = tagtab.val(tag);
+            return "<" + tagstr + ">";
+        }
+
+        size_t get_word_context_code(const std::vector<size_t>& encoded_word)
+            const {
+            return context_map.at(encoded_word);
+        }
+
+        // This will be called repeatedly during inference.
+        const std::vector<size>& get_tag_context_vector(size_t tag) const {
+            return context_tag_keys.at(tag);
+        }
+
+        size_t get_tag_context_code(size_t tag) const {
+            return context_map.at( get_tag_context_vector(tag) );
         }
 
         static size_t num_instances(std::string path) {
@@ -171,60 +231,62 @@ namespace nn {
             return result;
         }
 
-      std::string get_tagging_string(std::vector<size_t> tags,
-                                     std::vector<size_t> lens) const {
-        std::vector<std::string> tagging;
-        for(auto i=0; i<tags.size(); ++i) {
-          auto tag = tags.at(i);
-          auto len = lens.at(i);
-          for(auto j=0; j<len; ++j) {
-            if(j==0) {
-              if(tag == other_tag) {
-                tagging.push_back(tagtab.val(tag));
-              } else {
-                tagging.push_back("B-"+tagtab.val(tag));
-              }
-            } else {
-              tagging.push_back("I-"+tagtab.val(tag));
+        std::string get_tagging_string(std::vector<size_t> tags,
+                                       std::vector<size_t> lens) const {
+            std::vector<std::string> tagging;
+            for(auto i=0; i<tags.size(); ++i) {
+                auto tag = tags.at(i);
+                auto len = lens.at(i);
+                for(auto j=0; j<len; ++j) {
+                    if(j==0) {
+                        if(tag == other_tag) {
+                            tagging.push_back(tagtab.val(tag));
+                        } else {
+                            tagging.push_back("B-"+tagtab.val(tag));
+                        }
+                    } else {
+                        tagging.push_back("I-"+tagtab.val(tag));
+                    }
+                }
             }
-          }
+            return boost::algorithm::join(tagging, " ");
         }
-        return boost::algorithm::join(tagging, " ");
-      }
 
-      instance line_to_instance(std::string line) const {
-        CHECK(frozen) << "this should be used after training a model";
-        instance sentence;
-        std::vector<std::string> tokens;
-        boost::split(tokens, line, boost::is_any_of(" \t"));
-        sentence.chars.push_back(bos);
-        for (auto token : tokens) {
-          auto chars = split_utf8_word(token);
-          auto i = 0;
-          std::vector<size_t> word {bos};
-          for (auto c : chars) {
-            k_type s;
-            if(symtab.has_key(c)) {
-              s = symtab.key(c);
-            } else {
-              s = unk;
+        instance line_to_instance(std::string line) const {
+            CHECK(frozen) << "this should be used after training a model";
+            instance sentence;
+            std::vector<std::string> tokens;
+            boost::split(tokens, line, boost::is_any_of(" \t"));
+            sentence.chars.push_back(bos);
+            for (auto token : tokens) {
+                auto chars = split_utf8_word(token);
+                auto i = 0;
+                std::vector<size_t> word {bos};
+                for (auto c : chars) {
+                    k_type s;
+                    if(symtab.has_key(c)) {
+                        s = symtab.key(c);
+                    } else {
+                        s = unk;
+                    }
+                    word.push_back(s);
+                    sentence.chars.push_back(s);
+                }
+                word.push_back(eos);
+                sentence.chars.push_back(space);
+                sentence.words.push_back(word);
             }
-            word.push_back(s);
-            sentence.chars.push_back(s);
-          }
-          word.push_back(eos);
-          sentence.chars.push_back(space);
-          sentence.words.push_back(word);
+            sentence.chars.push_back(eos);
+            sentence.words.push_back(get_eos_obs());
+            return sentence;
         }
-        sentence.chars.push_back(eos);
-        sentence.words.push_back(get_eos_obs());
-        return sentence;
-      }
 
         std::tuple<instances, instances>
         read(std::string path,
              std::set<size_t> train_idx,
              std::set<size_t> test_idx) {
+
+            // Read train indices
             std::tuple<instances, instances> ret;
             std::get<0>(ret) = read(path, train_idx);
 
@@ -236,25 +298,25 @@ namespace nn {
             return ret;
         }
 
-      std::string decode(std::vector<size_t> word) const {
-        std::string ret;
-        for(auto it = word.begin(); it != word.end(); ++it) {
-          ret = ret + symtab.val(*it);
+        std::string decode(std::vector<size_t> word) const {
+            std::string ret;
+            for(auto it = word.begin(); it != word.end(); ++it) {
+                ret = ret + symtab.val(*it);
+            }
+            return ret;
         }
-        return ret;
-      }
 
-      std::string get_instance_chars_string(instance i) const {
-        return decode(i.chars);
-      }
-
-      std::string get_instance_words_string(instance i) const {
-        std::string ret;
-        for(auto it = i.words.begin(); it != i.words.end(); ++it) {
-          ret = ret + " " + decode(*it);
+        std::string get_instance_chars_string(instance i) const {
+            return decode(i.chars);
         }
-        return ret;
-      }
+
+        std::string get_instance_words_string(instance i) const {
+            std::string ret;
+            for(auto it = i.words.begin(); it != i.words.end(); ++it) {
+                ret = ret + " " + decode(*it);
+            }
+            return ret;
+        }
 
         std::vector<instance>
         read(std::string path,
@@ -364,6 +426,7 @@ namespace nn {
                     std::string tag_type(parts[0]);
                     std::string tag(parts[1]);
 
+                    // split the input string into UTF8 codes
                     std::vector<std::string> chars = split_utf8_word(obs);
 
                     // the "other" tag will be of this type
@@ -375,7 +438,9 @@ namespace nn {
                         sentence.tags.push_back( tagtab.get_or_add_key(tag) );
                     }
 
-                    std::vector<k_type> w { bos }; // start every word seq with <bos>
+                    // start every word seq with a distinguished
+                    // beginning-of-sequence symbol
+                    std::vector<k_type> w { bos };
                     sentence.words.push_back( w );
 
                     // current word and its length
@@ -388,6 +453,7 @@ namespace nn {
                         sentence.chars.push_back( space );
                     }
 
+                    // add all the characters to the word
                     size_t i = 0;
                     for (std::string c : chars) {
                         k_type s;
@@ -407,7 +473,13 @@ namespace nn {
                         word.push_back(s);
                         sentence.chars.push_back(s);
                     }
+
+                    // end every word with a distinguished
+                    // end-of-sequence symbol
                     word.push_back(eos);
+
+                    // update the context map if necessary
+                    add_to_context_map(obs, chars, word);
                 } else {
                     throw std::runtime_error("unrecognized data format");
                 }
@@ -426,10 +498,41 @@ namespace nn {
             return ret;
         }
 
+        void add_to_context_map(std::string obs, std::vector<std::string> chars,
+                                std::vector<size_t> encoded) {
+            if (context_map.count(encoded) > 0) {
+                return;
+            }
+            std::string key;
+            if (is_number(obs)) {
+                key = "<NUM>";
+            } else {
+                std::transform(obs.begin(), obs.end(), std::back_inserter(key),
+                               ::toupper);
+            }
+            auto val = vocab.get_or_add_key(key);
+            context_map[encoded] = val;
+        }
+
+        // This must be called prior to doing inference, since the
+        // context map is initialized with the tags below.
         void freeze() {
             symtab.freeze();
             tagtab.freeze();
             frozen = true;
+        }
+
+        void add_tags_to_context_map() {
+            // Add all tags to the context map
+            for (auto tag : tagtab.get_key_set()) {
+                if (tag != other_tag) {
+                    auto tagstr = get_tag_context_string(tag);
+                    if (context_map.count(tagvec) > 0) {
+                        throw std::logic_error("tag already in context map");
+                    }
+                    context_map[tagvec] = context_map.size();
+                }
+            }
         }
 
         void log_instance(const instance& i) {

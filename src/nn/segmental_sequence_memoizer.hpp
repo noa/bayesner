@@ -24,8 +24,6 @@
 #include <unordered_map>
 #include <sstream>
 
-#include <boost/lexical_cast.hpp>
-
 #include <nn/mutable_symtab.hpp>
 #include <nn/discrete_distribution.hpp>
 #include <nn/data.hpp>
@@ -52,49 +50,42 @@ namespace nn {
         return is_a_range;
     }
 
-    bool is_number(std::string s) {
-        std::replace( s.begin(), s.end(), ',', '.');
-        bool is_a_number = false;
-        try {
-            boost::lexical_cast<double>(s);
-            is_a_number = true;
-        }
-        catch(boost::bad_lexical_cast &) {
-            // if it throws, it's not a number.
-        }
-        return is_a_number;
-    }
+    // syms process_context_word(syms raw_w,
+    //                           mutable_symbol_table<>* symtab) {
+    //     syms ret;
+    //     std::string s;
 
-    syms process_context_word(syms raw_w,
-                              mutable_symbol_table<>* symtab) {
-        syms ret;
-        std::string s;
+    //     for(auto i = 1; i < raw_w.size() - 1; ++i) {
+    //         auto sym = raw_w[i];
+    //         s.append( symtab->val(sym) );
+    //     }
 
-        for(auto i = 1; i < raw_w.size() - 1; ++i) {
-            auto sym = raw_w[i];
-            s.append( symtab->val(sym) );
-        }
+    //     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
 
-        std::transform(s.begin(), s.end(), s.begin(), ::tolower);
-
-        for(auto i = 0; i < s.size(); ++i) {
-            std::string ch = s.substr(i,1);
-            ret.push_back( symtab->key(ch) );
-        }
-        return ret;
-    }
+    //     for(auto i = 0; i < s.size(); ++i) {
+    //         std::string ch = s.substr(i,1);
+    //         ret.push_back( symtab->key(ch) );
+    //     }
+    //     return ret;
+    // }
 
     enum class FilterProposal { CHUNK, BASELINE, HYBRID, PROP1 };
 
     template<typename data_t = CoNLLCorpus<>,
              typename base_t = HashIntegralMeasure<sym>,
-             typename tran_t = FixedDepthHPYP<sym, syms, base_t>,
+             typename tran_t = FixedDepthHPYP<sym, sym, base_t>,
              typename emit_t = adapted_seq_model_prefix<>>
     class segmental_sequence_memoizer {
-        typedef phrase Context;
+        // Beginning of string key. This will be mapped to a latent
+        // discrete variable via a deterministic lookup that must be
+        // provided via the data_t type.
+        size_t BOS;
 
-        syms BOS; // beginning of string obs
-        syms EOS; // end of string obs
+        // End of string observation. This is used for a particle to
+        // check when it has reached the end of a sequence of
+        // observations (we will never evaluate it's emission
+        // probability).
+        syms EOS;
 
         sym context_tag;
         sym eos_tag;
@@ -140,7 +131,7 @@ namespace nn {
         }
 
         segmental_sequence_memoizer() {}
-        segmental_sequence_memoizer(syms _BOS,
+        segmental_sequence_memoizer(size_t _BOS,
                                     syms _EOS,
                                     sym _context_tag,
                                     uint_str_table _symtab,
@@ -150,7 +141,7 @@ namespace nn {
 
         template<typename Corpus>
         segmental_sequence_memoizer(Corpus corpus)
-            : BOS(corpus.get_bos_obs()),
+            : BOS(corpus.get_bos_context_key()),
               EOS(corpus.get_eos_obs()),
               context_tag { corpus.get_other_key() },
               eos_tag     { corpus.tagtab.size()   },
@@ -229,7 +220,7 @@ namespace nn {
             syms tags;                  // predicted tags
             std::vector<size_t> lens;   // span (# of words) for each tag
 
-            std::vector<syms> context;  // all previous words, used for predictions
+            std::vector<sym> context;   // all previous latent word
             sym context_tag;
 
             void dlog() {
@@ -470,7 +461,7 @@ namespace nn {
             size_t total {0};
             size_t i;
             //DLOG(INFO) << "observing tags...";
-            phrase context {BOS};
+            std::vector<size_t> context { BOS };
 
             auto it = words.begin();
             for(i=0; i<tags.size(); ++i) {
@@ -500,11 +491,10 @@ namespace nn {
 
         void update_context(size_t tag, const syms& word,
                             phrase& context) const {
-            if (tag == context_tag) {
-                context.push_back( word );
+            if(tag == context_tag) {
+                context.push_back( corpus.get_word_context_code(word) );
             } else {
-                syms tag_vec { 0, tag, 0 };
-                context.push_back( tag_vec );
+                context.push_back( corpus.get_tag_context_code(tag) );
             }
         }
 
@@ -524,7 +514,7 @@ namespace nn {
 
             size_t total {0};
             size_t i;
-            phrase context {BOS};
+            std::vector<size_t> context {BOS};
             size_t word_pos {0};
             auto it = words.begin();
             auto dist = std::distance(it, words.end());
