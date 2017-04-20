@@ -9,12 +9,14 @@ fi
 
 EXE="build/src/cli/nname"
 PRED=pred.txt
-MODE=smc
+MODE=pgibbs
 MODEL=seg
 PROPOSAL=hybrid
-NPARTICLES=512
+NPARTICLES=32
+MCMC_ITER=100
 NTHREAD=16
 MODEL="--nparticles=$NPARTICLES --mode=$MODE --model=$MODEL"
+MODEL="$MODEL --nmcmc_iter=${MCMC_ITER}"
 
 if [ "$#" -eq 2 ]; then
     CMD="$EXE --train=$1 --test=$2 --gazetteer=$3 --out_path=$PRED $MODEL"

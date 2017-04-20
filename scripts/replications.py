@@ -32,14 +32,18 @@ parser.add_argument('--baselineOutPath', default='baseline.dat')
 parser.add_argument('--modelOutPath', default='model.dat')
 parser.add_argument('--deltaOutPath', default='delta.dat')
 parser.add_argument('--repeatGaz', default=False, action='store_true')
+parser.add_argument('--numParticles', type=int, default=128)
+parser.add_argument('--gazPseudocount', type=int, default=1)
 args = parser.parse_args()
 
 # Load model config
 config = configparser.ConfigParser()
-model_nParticles = 128
+model_nParticles = args.numParticles
+model_gazPseudocount = args.gazPseudocount
 if args.modelConfig:
     config.read(args.modelConfig)
     model_nParticles = int(config['model']['nparticles'])
+    model_gazPseudocount = int(config['model']['gazetteer_pseudocount'])
 
 # Temporary output files
 TMP_VALID = os.path.join(args.exptDir, 'replications_valid.tab')
@@ -199,7 +203,8 @@ def model_run_expt(trainPath, validPath, gazPath):
     return ret
 
 def model_run_expt_cfg(trainPath, validPath, gazPath, nParticles):
-    cmd = '{} {} {} {} {}'.format(MODEL_CFG_CMD, trainPath, validPath, gazPath, nParticles)
+    cmd = '{} {} {} {} {}'.format(MODEL_CFG_CMD, trainPath, validPath, gazPath,
+                                  nParticles)
     p = run( cmd )
     ret = model_f1(p)
     return ret

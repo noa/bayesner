@@ -2,8 +2,8 @@
 
 set -e
 
-if [ "$#" -ne 4 ]; then
-    echo "Usage: $0 TRAIN_PATH VALID_PATH GAZ_PATH NPARTICLE"
+if [ "$#" -ne 5 ]; then
+    echo "Usage: $0 TRAIN_PATH VALID_PATH GAZ_PATH NPARTICLE PSEUDOCOUNT"
     exit
 fi
 
@@ -13,8 +13,9 @@ MODE=smc
 MODEL=seg
 PROPOSAL=hybrid
 NPARTICLES=$4
-NTHREAD=8
+NTHREAD=16
 MODEL="--nparticles=$NPARTICLES --mode=$MODE --model=$MODEL"
+MODEL="$MODEL --gazetteer_pseudocount=$5"
 
 CMD="$EXE --train=$1 --test=$2 --gazetteer=$3 --out_path=$PRED $MODEL"
 echo $CMD

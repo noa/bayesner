@@ -76,6 +76,9 @@ namespace nn {
              typename tran_t = FixedDepthHPYP<sym, sym, base_t>,
              typename emit_t = adapted_seq_model_prefix<>>
     class segmental_sequence_memoizer {
+        // Type for the context representation
+        using Context = std::vector<size_t>;
+
         // Beginning of string key. This will be mapped to a latent
         // discrete variable via a deterministic lookup that must be
         // provided via the data_t type.
@@ -220,7 +223,7 @@ namespace nn {
             syms tags;                  // predicted tags
             std::vector<size_t> lens;   // span (# of words) for each tag
 
-            std::vector<sym> context;   // all previous latent word
+            Context context;            // all previous latent word
             sym context_tag;
 
             void dlog() {
@@ -418,7 +421,8 @@ namespace nn {
 
         void observe_gazetteer(const syms& tags,
                                const syms& lens,
-                               const phrase& words) {
+                               const phrase& words,
+                               size_t pseudocount) {
             CHECK(tags.size() > 0) << "no tags";
             CHECK(lens.size() > 0) << "no lens";
             CHECK(tags.size() == lens.size()) << "size mismatch! tags.len = "
@@ -434,7 +438,9 @@ namespace nn {
                                         emit_param.SPACE,
                                         emit_param.EOS);
                 auto emit_base = get_emission_model(tag)->get_base();
-                emit_base->observe(segment);
+                for(auto j = 0; j < pseudocount; ++j) {
+                    emit_base->observe(segment);
+                }
                 std::advance(it, len);
             }
             CHECK(it == words.end()-1);
@@ -460,8 +466,7 @@ namespace nn {
 
             size_t total {0};
             size_t i;
-            //DLOG(INFO) << "observing tags...";
-            std::vector<size_t> context { BOS };
+            Context context { BOS };
 
             auto it = words.begin();
             for(i=0; i<tags.size(); ++i) {
@@ -490,7 +495,7 @@ namespace nn {
         }
 
         void update_context(size_t tag, const syms& word,
-                            phrase& context) const {
+                            Context& context) const {
             if(tag == context_tag) {
                 context.push_back( corpus.get_word_context_code(word) );
             } else {
@@ -499,7 +504,7 @@ namespace nn {
         }
 
         void remove(const particle& p, const phrase& words) {
-            DLOG(INFO)               << "observing...";
+            //DLOG(INFO)               << "observing...";
             CHECK(p.tags.size() > 0) << "no tags";
             CHECK(p.lens.size() > 0) << "no lens";
             CHECK(p.tags.size() == p.lens.size()) << "size mismatch! tags.len = " << p.tags.size() << " lens.len = " << p.lens.size();
@@ -509,12 +514,9 @@ namespace nn {
             for (auto l : p.lens) tot_len += l;
             CHECK(tot_len == words.size()-1) << "bad particle; len mismatch";
 
-            //LOG(INFO) << "words.size() == " << words.size();
-            //LOG(INFO) << "tags.size() == "  << p.tags.size();
-
             size_t total {0};
             size_t i;
-            std::vector<size_t> context {BOS};
+            Context context {BOS};
             size_t word_pos {0};
             auto it = words.begin();
             auto dist = std::distance(it, words.end());
@@ -527,18 +529,13 @@ namespace nn {
                 total    += len;
                 word_pos += len;
 
-                //LOG(INFO) << "tag = " << tag << " len = " << len;
-
                 // Remove tag in context:
-                //LOG(INFO) << "removing tag in context...";
                 T->remove(context, tag);
 
                 // Update the context:
                 update_context(tag, *it, context);
 
                 // Remove the emission:
-                //LOG(INFO) << "removing the emission...";
-                //LOG(INFO) << "len = " << len;
                 CHECK(it != words.end()) << "bad iterator";
                 get_emission_model(tag)->remove(it, it+len);
 
@@ -553,7 +550,7 @@ namespace nn {
         }
 
         unnormalized_discrete_distribution<size_t>
-        get_transition_dist(const phrase& context) const {
+        get_transition_dist(const Context& context) const {
             unnormalized_discrete_distribution<size_t> ret;
             for(auto tag : tagtab.get_key_set()) {
                 ret.push_back_prob( tag,
@@ -564,7 +561,7 @@ namespace nn {
 
         discrete_distribution<std::pair<sym,bool>>
         get_between_prop(const unnormalized_discrete_distribution<size_t>& Q_trans,
-                         const phrase& context,
+                         const Context& context,
                          const syms& obs) const {
             typedef std::pair<sym,bool> Event;
             Event e;
@@ -652,8 +649,6 @@ namespace nn {
                                       const syms& obs,
                                       size_t t // position in the observation
                                       ) const {
-            //LOG(INFO) << "[inside extend score]";
-
             if(obs == EOS) {
                 auto tag = p.tags.back();
                 auto lep = E.at(tag)->log_prob(p.words, obs); // pay emission
@@ -666,7 +661,6 @@ namespace nn {
             auto b = p.end_at_pos(t);
 
             if(b) { // emit E-X: stop
-                //LOG(INFO) << "E-X";
                 auto tag = p.tag_at_pos(t);
                 auto log_emit_prob = E.at(tag)->log_prob(p.words, obs);
                 p.words.clear();
@@ -674,7 +668,6 @@ namespace nn {
                 update_context(tag, obs, p.context);
                 return log_emit_prob - log(STOP_PROB);
             } else { // emit I-X: continue
-                //LOG(INFO) << "I-X";
                 p.in_phrase = true;
                 p.words.push_back(obs);
                 return -log(STOP_PROB);
@@ -684,7 +677,6 @@ namespace nn {
         double between_extend(particle& p,
                               const syms& obs,
                               size_t t) const {
-            //LOG(INFO) << "[between extend score]";
             CHECK(p.words.size() == 0) << "logic";
 
             if (obs == EOS) {
@@ -706,18 +698,12 @@ namespace nn {
             auto lp = Q.get_log_prob(i);
             auto tran_idx = Q_trans.get_index(tag);
 
-            // LOG(INFO) << "i: " << i << " lp: " << lp
-            //           << "; tag: " << tag
-            //           << "; len: " << len;
-
             if ( cont ) {
-                //LOG(INFO) << "[between] cont";
                 p.words.push_back(obs);
                 p.in_phrase = true;
                 update_context(tag, obs, p.context);
                 return Q_trans.get_log_weight(tran_idx) - lp;
             } else {
-                //LOG(INFO) << "[between] stop";
                 p.in_phrase = false;
                 update_context(tag, obs, p.context);
                 return Q_trans.get_log_weight(tran_idx) + E.at(tag)->log_prob(obs) - lp;

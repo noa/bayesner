@@ -84,6 +84,7 @@ DEFINE_string(resampling, "none", "which resampling method to use");
 DEFINE_uint64(nparticles, 16, "number of particles used for gazetteer filter");
 DEFINE_uint64(nmcmc_iter, 10, "number of MCMC iterations");
 DEFINE_string(mode, "smc", "smc | pgibbs");
+DEFINE_uint64(gazetteer_pseudocount, 1, "gazetteer pseudocount");
 
 template<typename Model>
 std::unique_ptr<Model> load_model() {
@@ -137,10 +138,13 @@ std::unique_ptr<Model> train_model(const Corpus& corpus,
         LOG(INFO) << "Observing gazetteer...";
         histogram<sym> gaz_type_counts;
         for(const auto& g : gaz) {
-            m->observe_gazetteer(g.tags, g.lens, g.words);
+            m->observe_gazetteer(g.tags, g.lens, g.words,
+                                 FLAGS_gazetteer_pseudocount);
             for(auto i = 0; i < g.tags.size(); ++i) {
                 auto tag  = g.tags.at(i);
-                gaz_type_counts.observe(tag);
+                for(auto j = 0; j < FLAGS_gazetteer_pseudocount; ++j) {
+                    gaz_type_counts.observe(tag);
+                }
             }
         }
         LOG(INFO) << "Gazetteer type stats:";
@@ -410,9 +414,9 @@ int main(int argc, char **argv) {
 
         // Print some examples:
         for(auto i=0; i<2; ++i) {
-          LOG(INFO) << "Train instance " << i << ":";
-          LOG(INFO) << corpus.get_instance_chars_string(train[i]);
-          LOG(INFO) << corpus.get_instance_words_string(train[i]);
+            LOG(INFO) << "Train instance " << i << ":";
+            LOG(INFO) << corpus.get_instance_chars_string(train[i]);
+            LOG(INFO) << corpus.get_instance_words_string(train[i]);
         }
 
         // Read gazetteer
@@ -430,14 +434,18 @@ int main(int argc, char **argv) {
             CHECK(unlabeled.size() > 0);
         }
 
-        // Freeze the symbol table
-        corpus.symtab.freeze();
-        corpus.frozen = true;
+        // Read test data
+        LOG(INFO) << "Reading test data: " << FLAGS_test;
+        auto test = corpus.read(FLAGS_test);
+        LOG(INFO) << "Read " << test.size() << " test instances.";
 
-        // Freeze the tag table
-        corpus.tagtab.freeze();
+        // Finalize the corpus. This freezes symbol tables and handles
+        // some optimizations for efficiency.
+        LOG(INFO) << "Finalizing the corpus.";
+        corpus.finalize();
 
         // Print all the tags
+        LOG(INFO) << "Tags in the corpus:";
         auto tagmap = corpus.tagtab.get_map();
         for(auto e : tagmap) {
             LOG(INFO) << e.first << " <-> " << e.second;
@@ -448,22 +456,17 @@ int main(int argc, char **argv) {
         LOG(INFO) << nsym << " symbols in the alphabet";
 
         if(FLAGS_train_only) {
-          if(FLAGS_model == "hsm") {
-              train_model<HSM>(corpus,train,gaz,unlabeled);
-          } else if (FLAGS_model == "seg") {
-              train_model<SSM>(corpus,train,gaz,unlabeled);
-          }
-          else {
-            CHECK(false) << "unrecognized model: " << FLAGS_model;
-          }
-          LOG(INFO) << "All done; exiting.";
-          return 0;
+            if(FLAGS_model == "hsm") {
+                train_model<HSM>(corpus,train,gaz,unlabeled);
+            } else if (FLAGS_model == "seg") {
+                train_model<SSM>(corpus,train,gaz,unlabeled);
+            }
+            else {
+                CHECK(false) << "unrecognized model: " << FLAGS_model;
+            }
+            LOG(INFO) << "All done; exiting.";
+            return 0;
         }
-
-        // Read test data
-        LOG(INFO) << "Reading test data: " << FLAGS_test;
-        auto test = corpus.read(FLAGS_test);
-        LOG(INFO) << "Read " << test.size() << " test instances.";
 
         if (FLAGS_model == "hsm") {
             LOG(INFO) << "Model: hidden sequence memoizer";

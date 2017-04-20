@@ -32,6 +32,8 @@
 #include <nn/mutable_symtab.hpp>
 #include <nn/data.hpp>
 
+#include <cereal/types/unordered_map.hpp>
+#include <cereal/types/vector.hpp>
 #include <cereal/types/string.hpp>
 
 namespace nn {
@@ -139,6 +141,9 @@ namespace nn {
         void serialize(Archive & archive) {
             archive( symtab,
                      tagtab,
+                     context_map,
+                     context_tag_keys,
+                     vocab,
                      bos,
                      eos,
                      space,
@@ -174,11 +179,13 @@ namespace nn {
         k_type get_unk_key()          const { return unk;                   }
         k_type get_other_key()        const { return other_tag;             }
 
+        // TODO: avoid creating a new vector
         syms get_eos_obs() const {
             syms EOS { 0, eos, 0 };
             return EOS;
         }
 
+        // TODO: avoid creating a new vector
         syms get_bos_obs() const {
             syms BOS { 0, bos, 0 };
             return BOS;
@@ -199,11 +206,19 @@ namespace nn {
 
         size_t get_word_context_code(const std::vector<size_t>& encoded_word)
             const {
+            //CHECK(context_map.count(encoded_word)) << "missing context key for: "
+            //                                       << decode(encoded_word);
             return context_map.at(encoded_word);
         }
 
+        // This is only called once when the corpus is finalized.
+        std::vector<size_t> make_tag_context_key(size_t tag) const {
+            std::vector<size_t> ret {0, tag, 0};
+            return ret;
+        }
+
         // This will be called repeatedly during inference.
-        const std::vector<size>& get_tag_context_vector(size_t tag) const {
+        const std::vector<size_t>& get_tag_context_vector(size_t tag) const {
             return context_tag_keys.at(tag);
         }
 
@@ -525,14 +540,45 @@ namespace nn {
         void add_tags_to_context_map() {
             // Add all tags to the context map
             for (auto tag : tagtab.get_key_set()) {
+                LOG(INFO) << "tag: " << tag;
                 if (tag != other_tag) {
                     auto tagstr = get_tag_context_string(tag);
+                    LOG(INFO) << "tagstr: " << tagstr;
+                    if (vocab.has_key(tagstr)) {
+                        throw std::logic_error("tagstr already in vocab");
+                    }
+                    auto val = vocab.add_key(tagstr);
+                    //auto val = vocab.key(tagstr);
+                    LOG(INFO) << "val: " << val;
+                    auto tagvec = make_tag_context_key(tag);
+                    if (context_tag_keys.count(tag) > 0) {
+                        throw std::logic_error("tag context key already in map");
+                    }
+                    context_tag_keys[tag] = tagvec;
                     if (context_map.count(tagvec) > 0) {
                         throw std::logic_error("tag already in context map");
                     }
-                    context_map[tagvec] = context_map.size();
+                    context_map[tagvec] = val;
                 }
             }
+        }
+
+        void finalize() {
+            freeze();
+            add_tags_to_context_map();
+
+            // Add BOS to the context map
+            auto bosvec = get_bos_obs();
+            std::string bosstr {"<BOS>"};
+            auto val = vocab.add_key(bosstr);
+            if (context_map.count(bosvec)) {
+                throw std::logic_error("bos already in context map");
+            }
+            context_map[bosvec] = val;
+
+            // Stats on the lookup tables for context representation
+            LOG(INFO) << vocab.size() << " unique words in the vocabulary";
+            LOG(INFO) << context_map.size() << " keys in the context map";
         }
 
         void log_instance(const instance& i) {
