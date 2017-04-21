@@ -37,6 +37,7 @@ parser.add_argument('--numParticles', type=int, default=128)
 parser.add_argument('--gazPseudocount', type=int, default=1)
 parser.add_argument('--numMCMCIter', type=int, default=10)
 parser.add_argument('--mode', default='smc')
+parser.add_argument('--baselineOnly', default=False, action='store_true')
 args = parser.parse_args()
 
 # Load model config
@@ -73,15 +74,17 @@ if not os.path.isdir(args.exptDir):
     print("creating new experiment directory: {}".format(args.exptDir))
     os.mkdir(args.exptDir)
 else:
-    KEYVAL = _read_dict()
-    print("{} existing experiment results in KEYVAL store".format(len(KEYVAL)))
+    if os.path.exists(KEYVAL_PATH):
+        KEYVAL = _read_dict()
+        print("{} existing experiment results in KEYVAL store".format(len(KEYVAL)))
 
 # Set random seed
 np.random.seed(args.seed)
 
 # Set FEATURES to a features config file and PATH to the Stanford NER distribution
 # Tested with the version number shown below.
-BASELINE_PATH = 'stanford-ner-2015-12-09'
+#BASELINE_PATH = 'stanford-ner-2015-12-09'
+BASELINE_PATH = 'stanford-ner-2016-10-31'
 #BASELINE_FEATURES = '{}/featuresNoShape.prop'.format(BASELINE_PATH)
 BASELINE_FEATURES = '{}/features.prop'.format(BASELINE_PATH)
 BASELINE_MODEL = 'crf.model'
@@ -319,13 +322,16 @@ with progressbar.ProgressBar(max_value=nExpts) as bar:
                         "baseline_{}_{}".format(fold, r),
                         partial(baseline_run_expt, TMP_TRAIN, TMP_VALID, TMP_GAZ)
                     )]
-            model_scores[j] += [
-                fetch_or_run(
-                    "model_{}_{}".format(fold, r),
-                    partial(model_run_expt_cfg, TMP_TRAIN, TMP_VALID, TMP_GAZ,
-                            model_nParticles, model_gazPseudocount,
-                            model_numMCMCIter)
-                )]
+            if not args.baselineOnly:
+                model_scores[j] += [
+                    fetch_or_run(
+                        "model_{}_{}".format(fold, r),
+                        partial(model_run_expt_cfg, TMP_TRAIN, TMP_VALID, TMP_GAZ,
+                                model_nParticles, model_gazPseudocount,
+                                model_numMCMCIter)
+                    )]
+            else:
+                assert args.baseline, "--baselineOnly but not --baseline"
             bar.update(i)
             j += 1
             i += 1
