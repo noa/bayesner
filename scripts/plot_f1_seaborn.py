@@ -5,6 +5,14 @@ import pandas as pd
 import seaborn as sns
 import argparse
 import os
+from cycler import cycler
+
+#linecycler = cycler(['-', '--', ':', '-.'])
+
+# import matplotlib.pyplot as plt
+# from cycler import cycler
+# plt.rc('axes', prop_cycle=(cycler('color', ['r', 'g', 'b', 'y']) +
+#                            cycler('linestyle', ['-', '--', ':', '-.'])))
 
 parser = argparse.ArgumentParser()
 parser.add_argument('series', nargs='+')
