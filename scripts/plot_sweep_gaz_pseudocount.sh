@@ -10,5 +10,4 @@ set -e
 EPATH=$1
 
 scripts/plot_f1_seaborn.py $EPATH/*/*.dat --output pseudocount_sweep.pdf
-
 # eof
