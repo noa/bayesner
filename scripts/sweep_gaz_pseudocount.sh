@@ -15,21 +15,22 @@ EXPT_PATH=$1
 TRAIN=$2
 VALID=$3
 
-NTRAIN="--nTrain 1000"
+NTRAIN="--nTrain 500"
+NFOLD="--nTrainFold 10"
 NVALID="--nValid 100"
 GAZ="--nGaz 100"
 NREPL="--nReplication 5"
-PARAM="--numParticles 32 --numMCMCIter 1"
+PARAM="--numParticles 64 --numMCMCIter 10"
 
 if [ ! -d ${EXPT_PATH} ]; then
     mkdir ${EXPT_PATH}
 fi
 
-counts=( 1 5 10 25 50 100 )
+counts=( 1 10 100 )
 for c in "${counts[@]}"
 do
     FLAGS="$TRAIN $VALID ${EXPT_PATH}/$c $NTRAIN $NVALID $GAZ"
-    FLAGS="$FLAGS --nTrainFold 10 $NREPL"
+    FLAGS="$FLAGS $NFOLD $NREPL"
     echo "gazeteer pseudo-count: $c"
     COUNT1="$FLAGS --gazPseudocount $c"
     scripts/replications.py $COUNT1
