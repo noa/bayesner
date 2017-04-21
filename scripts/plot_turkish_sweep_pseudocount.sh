@@ -1,19 +1,34 @@
 #! /usr/bin/env bash
 
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 EXPT_PATH"
+    exit
+fi
+
 set -e
 
-TRAIN="data/turkish_train.conll"
-VALID="data/turkish_valid.conll"
+EXPT_PATH=$1
 
-NTRAIN="--nTrain 100"
+TRAIN="data/conll/turkish_train.conll"
+VALID="data/conll/turkish_valid.conll"
+
+NTRAIN="--nTrain 1000"
 NVALID="--nValid 100"
-NREPL="--nReplication 10"
-#CONFIG="expts/config.cfg"
-FLAGS="$TRAIN $VALID --baseline $NTRAIN $NVALID --nGaz 1"
-FLAGS="$FLAGS --nTrainFold 10 $NREPL"
+GAZ="--nGaz 100"
+NREPL="--nReplication 5"
+PARAM="--numParticles 64 --numMCMCIter 5"
 
-FILE=turkish_sweep_pseudocount_1.pdf
-if [ ! -f $FILE ]; then
-    scripts/replications.py $FLAGS
-    scripts/plot_f1_seaborn.py baseline.dat model.dat --output $FILE
-fi
+counts=( 1 5 10 25 )
+for c in "${counts[@]}"
+do
+    FLAGS="$TRAIN $VALID ${EXPT_PATH}_$c $NTRAIN $NVALID $GAZ"
+    FLAGS="$FLAGS --nTrainFold 10 $NREPL"
+    echo "gazeteer pseudo-count: $c"
+    COUNT1="$FLAGS --gazPseudocount $c"
+    scripts/replications.py $COUNT1
+    cp ${EXPT_PATH}_$c/model.dat turkish_pseudo_$c.dat
+done
+
+scripts/plot_f1_seaborn.py turkish_pseudo_*.dat --output turkish_pseudocount.pdf
+
+#eof

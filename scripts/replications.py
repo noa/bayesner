@@ -17,6 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('trainFile')
 parser.add_argument('validFile')
 parser.add_argument('exptDir')
+parser.add_argument('--exptDir', default='/tmp')
 parser.add_argument('--modelConfig')
 parser.add_argument('--nTrain', type=int, default=100)
 parser.add_argument('--nValid', type=int, default=250)
@@ -241,8 +242,12 @@ allValid = readConll(args.validFile)
 #valid = allValid[0:args.nValid]
 #gaz   = allTrain[args.nTrain:args.nTrain+args.nGaz]
 
+print('Experiment path: {}'.format(args.exptDir))
 print('Total number of training instances: '   + str(len(allTrain)))
 print('Total number of validation instances: ' + str(len(allValid)))
+print('We will subsample from these:')
+print('Train sample size: {}'.format(args.nTrain))
+print('Valid sample size: {}'.format(args.nValid))
 
 def write_instances(path, instances):
     vout = open(path, 'w')
