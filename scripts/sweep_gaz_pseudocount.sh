@@ -15,6 +15,7 @@ EXPT_PATH=$1
 TRAIN=$2
 VALID=$3
 
+INFERENCE="--inference smc"
 NTRAIN="--nTrain 500"
 NFOLD="--nTrainFold 10"
 NVALID="--nValid 100"
@@ -30,7 +31,7 @@ counts=( 1 10 100 )
 for c in "${counts[@]}"
 do
     FLAGS="$TRAIN $VALID ${EXPT_PATH}/$c $NTRAIN $NVALID $GAZ"
-    FLAGS="$FLAGS $NFOLD $NREPL"
+    FLAGS="$FLAGS $NFOLD $NREPL $INFERENCE"
     echo "gazeteer pseudo-count: $c"
     COUNT1="$FLAGS --gazPseudocount $c"
     scripts/replications.py $COUNT1

@@ -17,10 +17,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('trainFile')
 parser.add_argument('validFile')
 parser.add_argument('exptDir')
-parser.add_argument('--exptDir', default='/tmp')
+#parser.add_argument('--exptDir', default='/tmp')
 parser.add_argument('--modelConfig')
 parser.add_argument('--nTrain', type=int, default=100)
 parser.add_argument('--nValid', type=int, default=250)
+parser.add_argument('--inference', default='smc')
 parser.add_argument('--nGaz', type=int, default=50)
 parser.add_argument('--nReplication', type=int, default=5)
 parser.add_argument('--nTrainFold', type=int, default=10)
@@ -87,7 +88,8 @@ np.random.seed(args.seed)
 BASELINE_PATH = 'stanford-ner-2016-10-31'
 #BASELINE_FEATURES = '{}/featuresNoShape.prop'.format(BASELINE_PATH)
 BASELINE_FEATURES = '{}/features.prop'.format(BASELINE_PATH)
-BASELINE_MODEL = 'crf.model'
+#BASELINE_MODEL = 'crf.model'
+BASELINE_MODEL = os.path.join(args.exptDir, 'crf.model')
 BASELINE_CLASSPATH = '"{}/stanford-ner.jar:{}/lib/*"'.format(BASELINE_PATH, BASELINE_PATH)
 BASELINE_ARGS = '-useQN false -l1reg 0.5'
 BASELINE_CMD = 'java -server -cp {} -d64 -Xmx10g edu.stanford.nlp.ie.crf.CRFClassifier'.format(BASELINE_CLASSPATH)
@@ -95,7 +97,10 @@ BASELINE_CMD = 'java -server -cp {} -d64 -Xmx10g edu.stanford.nlp.ie.crf.CRFClas
 #MODEL_CMD     = 'bash scripts/run_expt_smc.sh'
 #MODEL_CFG_CMD = 'bash scripts/run_expt_smc_cfg.sh'
 
-MODEL_CFG_CMD = 'bash scripts/run_expt_mcmc_cfg.sh'
+if args.inference == 'mcmc':
+  MODEL_CFG_CMD = 'bash scripts/run_expt_mcmc_cfg.sh'
+else:
+  MODEL_CFG_CMD = 'bash scripts/run_expt_smc_cfg.sh'
 
 def BASELINE_TRAIN(trainFile, gazFile):
     return '{} -prop {} -serializeTo {} -trainFile {} -useGazettes=true -gazette {}'.format(BASELINE_CMD, BASELINE_FEATURES, BASELINE_MODEL, trainFile, gazFile)
@@ -216,8 +221,12 @@ def model_run_expt(trainPath, validPath, gazPath):
 
 def model_run_expt_cfg(trainPath, validPath, gazPath, nParticles, gazCount,
                        numIter):
-    cmd = '{} {} {} {} {} {} {}'.format(MODEL_CFG_CMD, trainPath, validPath,
-                                        gazPath, nParticles, gazCount, numIter)
+    if args.inference == 'mcmc':
+        cmd = '{} {} {} {} {} {} {}'.format(MODEL_CFG_CMD, trainPath, validPath,
+                                            gazPath, nParticles, gazCount, numIter)
+    else:
+        cmd = '{} {} {} {} {} {}'.format(MODEL_CFG_CMD, trainPath, validPath,
+                                         gazPath, nParticles, gazCount)
     p = run( cmd )
     ret = model_f1(p)
     return ret

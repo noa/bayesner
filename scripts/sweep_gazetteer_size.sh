@@ -11,18 +11,22 @@ EXPT_PATH=$1
 TRAIN=$2
 VALID=$3
 
+INFERENCE="--inference smc"
 NTRAIN="--nTrain 500"
-NFOLD="--nTrainFold 10"
+NFOLD="--nTrainFold 25"
 NVALID="--nValid 100"
 NREPL="--nReplication 5"
 PARAM="--numParticles 64 --numMCMCIter 10"
 
+if [ ! -d ${EXPT_PATH} ]; then
+    mkdir ${EXPT_PATH}
+fi
 
 declare -a arr=(10 100 1000)
 for size in "${arr[@]}"
 do
     echo "gazetteer size: $size"
-    ALL_ARGS="$TRAIN $VALID ${EXPT_PATH}/$size --delta $NTRAIN $NVALID $NFOLD $NREPL"
+    ALL_ARGS="$TRAIN $VALID ${EXPT_PATH}/$size --delta $NTRAIN $NVALID $NFOLD $NREPL $INFERENCE"
     scripts/replications.py ${ALL_ARGS} --nGaz $size
     #cp delta.dat turkish_delta_$size.dat
     #cp model.dat turkish_model_$size.dat
