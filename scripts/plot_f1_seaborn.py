@@ -5,7 +5,6 @@ import pandas as pd
 import seaborn as sns
 import argparse
 import os
-import itertools
 
 parser = argparse.ArgumentParser()
 parser.add_argument('series', nargs='+')
