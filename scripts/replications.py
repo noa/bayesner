@@ -34,16 +34,21 @@ parser.add_argument('--deltaOutPath', default='delta.dat')
 parser.add_argument('--repeatGaz', default=False, action='store_true')
 parser.add_argument('--numParticles', type=int, default=128)
 parser.add_argument('--gazPseudocount', type=int, default=1)
+parser.add_argument('--numMCMCIter', type=int, default=10)
+parser.add_argument('--mode', default='smc')
 args = parser.parse_args()
 
 # Load model config
 config = configparser.ConfigParser()
 model_nParticles = args.numParticles
 model_gazPseudocount = args.gazPseudocount
+model_numMCMCIter = args.numMCMCIter
 if args.modelConfig:
     config.read(args.modelConfig)
     model_nParticles = int(config['model']['nparticles'])
     model_gazPseudocount = int(config['model']['gazetteer_pseudocount'])
+    if args.mode == 'mcmc':
+        model_numMCMCIter = int(config['model']['num_mcmc_iter'])
 
 # Temporary output files
 TMP_VALID = os.path.join(args.exptDir, 'replications_valid.tab')
@@ -83,8 +88,10 @@ BASELINE_CLASSPATH = '"{}/stanford-ner.jar:{}/lib/*"'.format(BASELINE_PATH, BASE
 BASELINE_ARGS = '-useQN false -l1reg 0.5'
 BASELINE_CMD = 'java -server -cp {} -d64 -Xmx10g edu.stanford.nlp.ie.crf.CRFClassifier'.format(BASELINE_CLASSPATH)
 
-MODEL_CMD     = 'bash scripts/run_expt_smc.sh'
-MODEL_CFG_CMD = 'bash scripts/run_expt_smc_cfg.sh'
+#MODEL_CMD     = 'bash scripts/run_expt_smc.sh'
+#MODEL_CFG_CMD = 'bash scripts/run_expt_smc_cfg.sh'
+
+MODEL_CFG_CMD = 'bash scripts/run_expt_mcmc_cfg.sh'
 
 def BASELINE_TRAIN(trainFile, gazFile):
     return '{} -prop {} -serializeTo {} -trainFile {} -useGazettes=true -gazette {}'.format(BASELINE_CMD, BASELINE_FEATURES, BASELINE_MODEL, trainFile, gazFile)
@@ -145,6 +152,7 @@ def gazFromConll(inPath):
                 gaz.add( instance )
 
     return gaz
+
 def writeGaz_CoNLL(gaz, outPath):
     with open(outPath, 'w') as out:
         for e in gaz:
@@ -202,9 +210,10 @@ def model_run_expt(trainPath, validPath, gazPath):
     ret = model_f1(p)
     return ret
 
-def model_run_expt_cfg(trainPath, validPath, gazPath, nParticles):
-    cmd = '{} {} {} {} {}'.format(MODEL_CFG_CMD, trainPath, validPath, gazPath,
-                                  nParticles)
+def model_run_expt_cfg(trainPath, validPath, gazPath, nParticles, gazCount,
+                       numIter):
+    cmd = '{} {} {} {} {} {} {}'.format(MODEL_CFG_CMD, trainPath, validPath,
+                                        gazPath, nParticles, gazCount, numIter)
     p = run( cmd )
     ret = model_f1(p)
     return ret
@@ -308,7 +317,9 @@ with progressbar.ProgressBar(max_value=nExpts) as bar:
             model_scores[j] += [
                 fetch_or_run(
                     "model_{}_{}".format(fold, r),
-                    partial(model_run_expt_cfg, TMP_TRAIN, TMP_VALID, TMP_GAZ, model_nParticles)
+                    partial(model_run_expt_cfg, TMP_TRAIN, TMP_VALID, TMP_GAZ,
+                            model_nParticles, model_gazPseudocount,
+                            model_numMCMCIter)
                 )]
             bar.update(i)
             j += 1

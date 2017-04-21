@@ -357,9 +357,11 @@ namespace nn {
             return p;
         }
 
+        // TODO: use pseudocount
         void observe_gazetteer(const syms& tags,
                                const syms& lens,
-                               const phrase& words) {
+                               const phrase& words,
+                               size_t pseudocount) {
             auto it = words.begin();
             auto tot_len {0};
             for(size_t i=0; i<tags.size(); ++i) {
