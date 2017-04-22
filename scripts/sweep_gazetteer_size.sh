@@ -16,7 +16,7 @@ NTRAIN="--nTrain 500"
 NFOLD="--nTrainFold 25"
 NVALID="--nValid 100"
 NREPL="--nReplication 5"
-PARAM="--numParticles 64 --numMCMCIter 10"
+PARAM="--numParticles 512 --numMCMCIter 10"
 
 if [ ! -d ${EXPT_PATH} ]; then
     mkdir ${EXPT_PATH}
