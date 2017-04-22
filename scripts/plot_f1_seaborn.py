@@ -9,11 +9,14 @@ import os
 parser = argparse.ArgumentParser()
 parser.add_argument('series', nargs='+')
 parser.add_argument('--output', default="plot.png")
+parser.add_argument('--xlabel', default="# sentence")
+parser.add_argument('--ylabel', default="F1")
+parser.add_argument('--legend', default="Model")
 args = parser.parse_args()
 
-AX='# sentence'
-AY='F1'
-MODEL='Model'
+AX=args.xlabel
+AY=args.ylabel
+MODEL=args.legend
 SUBJ='subject'
 
 raw_data = {
