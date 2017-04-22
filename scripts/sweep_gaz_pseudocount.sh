@@ -17,11 +17,12 @@ VALID=$3
 
 INFERENCE="--inference smc"
 NTRAIN="--nTrain 500"
-NFOLD="--nTrainFold 10"
+NFOLD="--nTrainFold 25"
 NVALID="--nValid 100"
 GAZ="--nGaz 100"
 NREPL="--nReplication 5"
-PARAM="--numParticles 64 --numMCMCIter 10"
+PARAM="--numParticles 512"
+#PARAM="--numParticles 64 --numMCMCIter 10"
 
 if [ ! -d ${EXPT_PATH} ]; then
     mkdir ${EXPT_PATH}
@@ -35,15 +36,15 @@ do
     echo "gazeteer pseudo-count: $c"
     COUNT1="$FLAGS --gazPseudocount $c"
     scripts/replications.py $COUNT1
-    #cp ${EXPT_PATH}/$c/model.dat ${EXPT_PATH}/turkish_pseudo_$c.dat
+    cp ${EXPT_PATH}/$c/model.dat ${EXPT_PATH}/$c.dat
 done
 
 # Baseline
 echo "baseline run"
 FLAGS="$TRAIN $VALID ${EXPT_PATH}/baseline $NTRAIN $NVALID $GAZ"
-FLAGS="$FLAGS --nTrainFold 10 $NREPL --baseline --baselineOnly"
+FLAGS="$FLAGS $NFOLD $NREPL --baseline --baselineOnly"
 scripts/replications.py $FLAGS
-#cp ${EXPT_PATH}/baseline/baseline.dat ${EXPT_PATH}/baseline.dat
+cp ${EXPT_PATH}/baseline/baseline.dat ${EXPT_PATH}/baseline.dat
 
 #scripts/plot_f1_seaborn.py turkish_pseudo_*.dat baseline.dat --output turkish_pseudocount.pdf
 
