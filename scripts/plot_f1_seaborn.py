@@ -49,9 +49,14 @@ df = pd.DataFrame(raw_data, columns = [AX,
 sns.set(style="darkgrid")
 
 
+# import matplotlib.pyplot as plt
+# from cycler import cycler
+# plt.rc('axes', prop_cycle=(cycler('color', ['r', 'g', 'b', 'y']) +
+#                            cycler('linestyle', ['-', '--', ':', '-.'])))
+
 ax = sns.tsplot(time=AX, value=AY,
                 condition=MODEL, unit=SUBJ,
-                data=df)
+                data=df, interpolate=True)
 fig = ax.get_figure()
 fig.savefig(args.output)
 
